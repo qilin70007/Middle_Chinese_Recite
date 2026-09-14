@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">文绮语文背诵</string>
+    <string name="playback_channel">背诵朗读</string>
+    <string name="playback_channel_description">息屏后继续朗读背诵内容</string>
+</resources>

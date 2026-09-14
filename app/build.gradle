@@ -1,0 +1,49 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.qilin.chineserecite"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.qilin.chineserecite"
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    sourceSets {
+        main.assets.srcDir(layout.buildDirectory.dir("generated/assets"))
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+def syncWebAssets = tasks.register("syncWebAssets", Sync) {
+    from(rootProject.projectDir) {
+        include "index.html"
+        include "styles.css"
+        include "app.js"
+    }
+    into(layout.buildDirectory.dir("generated/assets/www"))
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(syncWebAssets)
+}
