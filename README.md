@@ -16,8 +16,9 @@
 
 ## 安装 APK
 
-进入仓库的 **Actions → Build Android APK → 最近一次成功运行 → Artifacts**，下载
-`Middle_Chinese_Recite-Android`，解压后安装 APK。
+[直接下载最新安卓 APK](https://github.com/qilin70007/Middle_Chinese_Recite/releases/download/latest/Middle_Chinese_Recite-latest.apk)
+
+首次安装时，安卓可能提示“未知来源应用”；确认文件来自本仓库后允许本次安装即可。也可进入 **Actions → Build Android APK** 下载构建产物。
 
 ## 本地构建
 
