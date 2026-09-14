@@ -164,6 +164,17 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onBackPressed() {
+        if (webView == null) {
+            super.onBackPressed();
+            return;
+        }
+        webView.evaluateJavascript("(window.appBack && window.appBack())", handled -> {
+            if (!"true".equals(handled)) MainActivity.super.onBackPressed();
+        });
+    }
+
+    @Override
     protected void onDestroy() {
         if (webView != null) {
             webView.removeJavascriptInterface("Native");
