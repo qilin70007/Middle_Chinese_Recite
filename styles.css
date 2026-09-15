@@ -80,3 +80,36 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 .hidden{display:none!important}
 @media(min-width:620px){.view{padding-left:28px;padding-right:28px}.lesson-list{grid-template-columns:1fr 1fr}.modal{align-items:center}.modal-sheet{border-radius:26px;max-height:88vh}.recite-card{min-height:330px}}
 @media(max-width:370px){body{font-size:16px}.stats{gap:6px}.stat-card{padding:12px 4px}.form-grid{grid-template-columns:1fr}.segment-text{font-size:1.55rem}}
+
+
+/* Gemini 伴读高亮与控制栏（适配安卓触屏） */
+.sentence-item{transition:color .25s,transform .25s,background .25s;padding:8px 12px;border-radius:10px;line-height:1.8}
+.recite-card.is-speaking{border-top-color:var(--gold);box-shadow:0 12px 34px rgba(213,154,48,.20)}
+.recite-card.is-speaking .sentence-item{background:rgba(213,154,48,.12);color:var(--ink);font-weight:600;transform:scale(1.015);box-shadow:inset 3px 0 0 var(--gold)}
+.audio-control-dock{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:24px;padding:10px 14px;margin:15px auto;box-shadow:0 4px 16px rgba(0,0,0,.06);max-width:680px;gap:12px}
+.dock-left{display:flex;align-items:center;gap:4px}
+.btn-dock-icon{background:transparent;border:0;font-size:1.05rem;cursor:pointer;padding:8px;border-radius:50%;color:var(--ink);min-width:38px;min-height:38px}
+.btn-dock-icon:active,.btn-dock-icon.active{background:var(--gold-soft)}
+.btn-dock-icon:disabled{opacity:.32}
+.btn-dock-play{width:44px;height:44px;border-radius:50%;background:var(--green);color:#fff;border:0;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 4px 12px rgba(35,117,106,.2)}
+.btn-dock-play.is-playing{background:var(--coral)}
+.dock-center{flex:1;display:flex;flex-direction:column;gap:5px;min-width:72px}
+.dock-progress-text{font-size:.76rem;color:var(--muted)}
+.dock-progress-bar{height:5px;background:#eee;border-radius:4px;overflow:hidden}
+.dock-progress-fill{height:100%;width:0;background:var(--gold);transition:width .3s ease}
+.dock-speed-label{font-size:.76rem;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.dock-speed-label select{width:auto;border:1px solid #d7d0c2;border-radius:8px;padding:5px;background:#fff}
+@media(max-width:520px){
+  .audio-control-dock{display:grid;grid-template-columns:auto 1fr;padding:10px 12px;border-radius:20px}
+  .dock-left{grid-row:1 / span 2}
+  .dock-right{grid-column:2}
+  .dock-speed-label{justify-content:flex-end}
+  .btn-dock-icon{min-width:34px;padding:6px}
+  .btn-dock-play{width:40px;height:40px}
+}
+@media(max-width:380px){
+  .audio-control-dock{grid-template-columns:1fr}
+  .dock-left{grid-row:auto;justify-content:center}
+  .dock-center,.dock-right{grid-column:1}
+  .dock-speed-label{justify-content:center}
+}

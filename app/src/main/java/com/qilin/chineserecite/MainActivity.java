@@ -3,7 +3,10 @@ package com.qilin.chineserecite;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -31,6 +34,19 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private String pendingFileContent;
+    private boolean playbackReceiverRegistered;
+    private final BroadcastReceiver playbackReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (webView == null || !PlaybackService.ACTION_PROGRESS.equals(intent.getAction())) return;
+            int index = intent.getIntExtra(PlaybackService.EXTRA_INDEX, -1);
+            int total = intent.getIntExtra(PlaybackService.EXTRA_TOTAL, 0);
+            boolean done = intent.getBooleanExtra(PlaybackService.EXTRA_DONE, false);
+            String script = "window.dispatchEvent(new CustomEvent('nativeSpeechProgress',{" +
+                    "detail:{index:" + index + ",total:" + total + ",done:" + done + "}}))";
+            webView.post(() -> webView.evaluateJavascript(script, null));
+        }
+    };
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override
@@ -70,6 +86,14 @@ public class MainActivity extends Activity {
             }
         });
         webView.loadUrl("file:///android_asset/www/index.html");
+
+        IntentFilter playbackFilter = new IntentFilter(PlaybackService.ACTION_PROGRESS);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(playbackReceiver, playbackFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(playbackReceiver, playbackFilter);
+        }
+        playbackReceiverRegistered = true;
 
         if (Build.VERSION.SDK_INT >= 33 &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -176,6 +200,13 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (playbackReceiverRegistered) {
+            try {
+                unregisterReceiver(playbackReceiver);
+            } catch (IllegalArgumentException ignored) {
+            }
+            playbackReceiverRegistered = false;
+        }
         if (webView != null) {
             webView.removeJavascriptInterface("Native");
             webView.destroy();

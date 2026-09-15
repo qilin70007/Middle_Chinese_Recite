@@ -25,7 +25,7 @@ jobs:
           node-version: "22"
 
       - name: Check learning application JavaScript
-        run: node --check app.js
+        run: node --check app.js && node --check speech-manager.js && node --check audio-dock.js
 
       - uses: android-actions/setup-android@v3
 
@@ -46,6 +46,8 @@ jobs:
           unzip -l "$APK" > /tmp/apk-files.txt
           grep -F "assets/www/index.html" /tmp/apk-files.txt
           grep -F "assets/www/app.js" /tmp/apk-files.txt
+          grep -F "assets/www/speech-manager.js" /tmp/apk-files.txt
+          grep -F "assets/www/audio-dock.js" /tmp/apk-files.txt
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print "$APK" > /tmp/manifest.xml
           grep -F "com.qilin.chineserecite.PlaybackService" /tmp/manifest.xml
           grep -F "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" /tmp/manifest.xml

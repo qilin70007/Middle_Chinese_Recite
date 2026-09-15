@@ -21,7 +21,11 @@ import java.util.Locale;
 public class PlaybackService extends Service implements TextToSpeech.OnInitListener {
     public static final String ACTION_PLAY = "com.qilin.chineserecite.PLAY";
     public static final String ACTION_STOP = "com.qilin.chineserecite.STOP";
+    public static final String ACTION_PROGRESS = "com.qilin.chineserecite.PLAYBACK_PROGRESS";
     public static final String EXTRA_LINES = "lines";
+    public static final String EXTRA_INDEX = "index";
+    public static final String EXTRA_TOTAL = "total";
+    public static final String EXTRA_DONE = "done";
     public static final String EXTRA_RATE = "rate";
     public static final String EXTRA_PAUSE = "pause";
     public static final String EXTRA_REPEAT = "repeat";
@@ -95,6 +99,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
             return;
         }
         String line = lines.get(lineIndex);
+        broadcastProgress(lineIndex, false);
         tts.setSpeechRate(rate);
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(NOTIFICATION_ID, buildNotification("第 " + (lineIndex + 1) + " / " + lines.size() + " 句"));
@@ -144,7 +149,17 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         }
     }
 
+    private void broadcastProgress(int index, boolean done) {
+        Intent progress = new Intent(ACTION_PROGRESS);
+        progress.setPackage(getPackageName());
+        progress.putExtra(EXTRA_INDEX, index);
+        progress.putExtra(EXTRA_TOTAL, lines.size());
+        progress.putExtra(EXTRA_DONE, done);
+        sendBroadcast(progress);
+    }
+
     private void stopPlayback() {
+        broadcastProgress(-1, true);
         handler.removeCallbacksAndMessages(null);
         if (tts != null) tts.stop();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
