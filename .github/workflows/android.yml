@@ -28,6 +28,8 @@ jobs:
         run: node --check app.js && node --check speech-manager.js && node --check audio-dock.js
 
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android SDK
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
