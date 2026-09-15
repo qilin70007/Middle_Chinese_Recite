@@ -112,34 +112,10 @@
     </div>
     <section class="recite-card" id="reciteCard">
       <div class="segment-index" id="segmentIndex"></div>
-      <p id="segmentText" class="segment-text sentence-item"></p>
+      <p id="segmentText" class="segment-text"></p>
       <button id="revealBtn" class="reveal-btn hidden">点一下显示原文</button>
       <p id="memoryHint" class="memory-hint"></p>
     </section>
-    <div class="audio-control-dock" id="audioControlDock" aria-label="全文伴读控制">
-      <div class="dock-left">
-        <button type="button" class="btn-dock-icon" id="btnPrevSentence" aria-label="上一句">⏮</button>
-        <button type="button" class="btn-dock-play" id="btnToggleSpeech" aria-label="播放或暂停">
-          <span id="playIcon">▶</span>
-        </button>
-        <button type="button" class="btn-dock-icon" id="btnNextSentence" aria-label="下一句">⏭</button>
-        <button type="button" class="btn-dock-icon" id="btnRepeatSentence" aria-label="单句循环" aria-pressed="false">🔁</button>
-      </div>
-      <div class="dock-center">
-        <span class="dock-progress-text" id="speechProgress">第 1 / 1 句</span>
-        <div class="dock-progress-bar"><div class="dock-progress-fill" id="speechProgressFill"></div></div>
-      </div>
-      <div class="dock-right">
-        <label class="dock-speed-label">语速
-          <select id="speechRateSelect">
-            <option value="0.6">0.6×</option>
-            <option value="0.8" selected>0.8×</option>
-            <option value="1">1.0×</option>
-            <option value="1.2">1.2×</option>
-          </select>
-        </label>
-      </div>
-    </div>
     <div class="nav-row">
       <button id="prevBtn" class="icon-btn big">←</button>
       <button id="speakCurrentBtn" class="listen-btn">▶ 读这一句</button>
@@ -192,8 +168,6 @@
     </div>
   </div>
   <div id="toast" class="toast hidden"></div>
-  <script src="speech-manager.js"></script>
-  <script src="audio-dock.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

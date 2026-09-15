@@ -231,27 +231,6 @@
     return indices.length ? indices : segments.map((_, i) => i);
   }
 
-  function initAudioDock() {
-    if (!practice || !window.setupAudioDock) return;
-    const sentences = practice.indices.map(index => segmentsOf(practice.lesson)[index]);
-    window.setupAudioDock(sentences, {
-      startIndex: practice.position,
-      rate: speechSettings().rate,
-      onSentenceChange(index) {
-        if (!practice || practice.position === index) return;
-        practice.position = index;
-        practice.revealed = false;
-        renderPractice();
-      },
-      onRateChange(rate) {
-        data.settings.rate = rate;
-        $("speechRate").value = rate;
-        $("rateOutput").textContent = Number(rate).toFixed(1) + "×";
-        saveData();
-      }
-    });
-  }
-
   function openPractice(lessonId, scope = "all") {
     const lesson = data.lessons.find(x => x.id === lessonId);
     if (!lesson) return;
@@ -260,7 +239,6 @@
     $("practiceView").classList.add("active");
     $("bottomNav").classList.add("hidden");
     renderPractice();
-    initAudioDock();
     window.scrollTo(0, 0);
   }
 
@@ -301,7 +279,6 @@
     $("toggleDifficultBtn").textContent = review.difficult ? "★ 已是重难点" : "☆ 标为重难点";
     $("notesBox").classList.toggle("hidden", !lesson.notes);
     $("notesText").textContent = lesson.notes || "";
-    if (window.AudioDockController) window.AudioDockController.setIndex(position);
   }
 
   function movePractice(delta) {
@@ -345,7 +322,6 @@
   }
 
   function startSpeech(lines, repeatOverride) {
-    if (window.SpeechManager && SpeechManager.isPlaying) SpeechManager.stop();
     const clean = lines.map(x => String(x).trim()).filter(Boolean);
     if (!clean.length) return toast("没有可朗读的内容");
     const settings = speechSettings();
@@ -385,14 +361,12 @@
   }
 
   function stopSpeech() {
-    if (window.SpeechManager && SpeechManager.isPlaying) SpeechManager.stop();
-    else if (window.Native && Native.stopPlayback) Native.stopPlayback();
+    if (window.Native && Native.stopPlayback) Native.stopPlayback();
     if ("speechSynthesis" in window) speechSynthesis.cancel();
     toast("朗读已停止");
   }
 
   function closePractice() {
-    if (window.AudioDockController) window.AudioDockController.destroy();
     stopSpeech();
     practice = null;
     showView(currentView === "settings" ? "settings" : currentView === "review" ? "review" : "home");
@@ -404,11 +378,6 @@
     data.settings.repeat = Number($("speechRepeat").value);
     $("rateOutput").textContent = data.settings.rate.toFixed(1) + "×";
     $("pauseOutput").textContent = data.settings.pause.toFixed(1) + " 秒";
-    if (window.SpeechManager) SpeechManager.rate = data.settings.rate;
-    const dockRate = $("speechRateSelect");
-    if (dockRate && Array.from(dockRate.options).some(option => Number(option.value) === data.settings.rate)) {
-      dockRate.value = String(data.settings.rate);
-    }
     saveData();
   }
 
