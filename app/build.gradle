@@ -14,8 +14,18 @@ android {
         versionName "0.2.0"
     }
 
+    signingConfigs {
+        stableDebug {
+            storeFile file("debug.keystore")
+            storePassword "chinese-recite-dev"
+            keyAlias "chinese-recite-dev"
+            keyPassword "chinese-recite-dev"
+        }
+    }
+
     buildTypes {
         debug {
+            signingConfig signingConfigs.stableDebug
             applicationIdSuffix ".debug"
             versionNameSuffix "-debug"
         }
