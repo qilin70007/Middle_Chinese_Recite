@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.media.AudioAttributes;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -24,8 +25,11 @@ import java.util.Set;
 
 public class PlaybackService extends Service implements TextToSpeech.OnInitListener {
     public static final String ACTION_PLAY = "com.qilin.chineserecite.PLAY";
+    public static final String ACTION_PLAY_AUDIO = "com.qilin.chineserecite.PLAY_AUDIO";
     public static final String ACTION_STOP = "com.qilin.chineserecite.STOP";
     public static final String EXTRA_LINES = "lines";
+    public static final String EXTRA_AUDIO_PATH = "audio_path";
+    public static final String EXTRA_AUDIO_TITLE = "audio_title";
     public static final String EXTRA_RATE = "rate";
     public static final String EXTRA_PAUSE = "pause";
     public static final String EXTRA_REPEAT = "repeat";
@@ -43,6 +47,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     private float rate = 0.8f;
     private String voiceStyle = "female";
     private PowerManager.WakeLock wakeLock;
+    private MediaPlayer mediaPlayer;
     private boolean ready;
 
     @Override
@@ -68,7 +73,18 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
             stopPlayback();
             return START_NOT_STICKY;
         }
+        if (ACTION_PLAY_AUDIO.equals(intent.getAction())) {
+            String path = intent.getStringExtra(EXTRA_AUDIO_PATH);
+            String title = intent.getStringExtra(EXTRA_AUDIO_TITLE);
+            if (path == null || path.isEmpty()) {
+                stopPlayback();
+                return START_NOT_STICKY;
+            }
+            playAudioFile(path, title);
+            return START_NOT_STICKY;
+        }
         if (ACTION_PLAY.equals(intent.getAction())) {
+            releaseMediaPlayer();
             ArrayList<String> received = intent.getStringArrayListExtra(EXTRA_LINES);
             if (received != null && !received.isEmpty()) {
                 lines = received;
@@ -164,6 +180,42 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         return "poetry".equals(voiceStyle) ? Math.max(1200, pauseMs) : pauseMs;
     }
 
+    private void playAudioFile(String path, String title) {
+        handler.removeCallbacksAndMessages(null);
+        if (tts != null) tts.stop();
+        releaseMediaPlayer();
+        startForeground(NOTIFICATION_ID, buildNotification("正在播放 MP3：" + (title == null ? "背诵音频" : title)));
+        if (!wakeLock.isHeld()) wakeLock.acquire(60 * 60 * 1000L);
+        try {
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build());
+            mediaPlayer.setDataSource(path);
+            mediaPlayer.setOnPreparedListener(MediaPlayer::start);
+            mediaPlayer.setOnCompletionListener(player -> stopPlayback());
+            mediaPlayer.setOnErrorListener((player, what, extra) -> {
+                stopPlayback();
+                return true;
+            });
+            mediaPlayer.prepareAsync();
+        } catch (Exception error) {
+            stopPlayback();
+        }
+    }
+
+    private void releaseMediaPlayer() {
+        if (mediaPlayer == null) return;
+        try {
+            if (mediaPlayer.isPlaying()) mediaPlayer.stop();
+        } catch (IllegalStateException ignored) {
+        }
+        mediaPlayer.reset();
+        mediaPlayer.release();
+        mediaPlayer = null;
+    }
+
     private void speakCurrent() {
         if (!ready || lineIndex >= lines.size()) {
             stopPlayback();
@@ -221,6 +273,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     private void stopPlayback() {
         handler.removeCallbacksAndMessages(null);
         if (tts != null) tts.stop();
+        releaseMediaPlayer();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
@@ -233,6 +286,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
             tts.stop();
             tts.shutdown();
         }
+        releaseMediaPlayer();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         super.onDestroy();
     }

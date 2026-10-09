@@ -5,10 +5,12 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
@@ -20,7 +22,11 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -28,9 +34,11 @@ import java.util.ArrayList;
 public class MainActivity extends Activity {
     private static final int CREATE_BACKUP = 4101;
     private static final int FILE_CHOOSER = 4102;
+    private static final int PICK_AUDIO = 4103;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private String pendingFileContent;
+    private String pendingAudioLessonId;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override
@@ -113,6 +121,39 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void pickAudio(String lessonId) {
+            pendingAudioLessonId = lessonId;
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("audio/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            runOnUiThread(() -> startActivityForResult(intent, PICK_AUDIO));
+        }
+
+        @JavascriptInterface
+        public boolean hasImportedAudio(String lessonId) {
+            return audioFileForLesson(lessonId).isFile();
+        }
+
+        @JavascriptInterface
+        public boolean playImportedAudio(String lessonId, String title) {
+            File audio = audioFileForLesson(lessonId);
+            if (!audio.isFile()) return false;
+            Intent intent = new Intent(MainActivity.this, PlaybackService.class);
+            intent.setAction(PlaybackService.ACTION_PLAY_AUDIO);
+            intent.putExtra(PlaybackService.EXTRA_AUDIO_PATH, audio.getAbsolutePath());
+            intent.putExtra(PlaybackService.EXTRA_AUDIO_TITLE, title == null ? "背诵音频" : title);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
+            return true;
+        }
+
+        @JavascriptInterface
+        public boolean removeImportedAudio(String lessonId) {
+            File audio = audioFileForLesson(lessonId);
+            return !audio.exists() || audio.delete();
+        }
+
+        @JavascriptInterface
         public void saveTextFile(String filename, String content) {
             pendingFileContent = content;
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -139,6 +180,32 @@ public class MainActivity extends Activity {
         }
     }
 
+    private File audioFileForLesson(String lessonId) {
+        String safeId = lessonId == null ? "unknown" : lessonId.replaceAll("[^a-zA-Z0-9_-]", "_");
+        File directory = new File(getFilesDir(), "lesson_audio");
+        if (!directory.exists()) directory.mkdirs();
+        return new File(directory, safeId + ".mp3");
+    }
+
+    private String getDisplayName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri,
+                new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) return cursor.getString(index);
+            }
+        } catch (Exception ignored) {
+        }
+        return "已导入的音频.mp3";
+    }
+
+    private void notifyAudioImported(String lessonId, String displayName) {
+        if (webView == null) return;
+        String script = "window.onNativeAudioImported && window.onNativeAudioImported("
+                + JSONObject.quote(lessonId) + "," + JSONObject.quote(displayName) + ")";
+        webView.evaluateJavascript(script, null);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -148,6 +215,30 @@ public class MainActivity extends Activity {
                         ? new Uri[]{data.getData()} : null;
                 fileCallback.onReceiveValue(result);
                 fileCallback = null;
+            }
+            return;
+        }
+        if (requestCode == PICK_AUDIO) {
+            String lessonId = pendingAudioLessonId;
+            pendingAudioLessonId = null;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && lessonId != null) {
+                Uri uri = data.getData();
+                File destination = audioFileForLesson(lessonId);
+                File temporary = new File(destination.getParentFile(), destination.getName() + ".tmp");
+                try (InputStream input = getContentResolver().openInputStream(uri);
+                     FileOutputStream output = new FileOutputStream(temporary)) {
+                    if (input == null) throw new IllegalStateException("无法读取音频");
+                    byte[] buffer = new byte[16 * 1024];
+                    int length;
+                    while ((length = input.read(buffer)) > 0) output.write(buffer, 0, length);
+                    if (destination.exists() && !destination.delete()) throw new IllegalStateException("无法替换原音频");
+                    if (!temporary.renameTo(destination)) throw new IllegalStateException("无法保存音频");
+                    notifyAudioImported(lessonId, getDisplayName(uri));
+                    Toast.makeText(this, "MP3 已导入", Toast.LENGTH_SHORT).show();
+                } catch (Exception error) {
+                    if (temporary.exists()) temporary.delete();
+                    Toast.makeText(this, "导入失败：" + error.getMessage(), Toast.LENGTH_LONG).show();
+                }
             }
             return;
         }

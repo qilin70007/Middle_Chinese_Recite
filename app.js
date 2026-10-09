@@ -279,6 +279,50 @@
     $("toggleDifficultBtn").textContent = review.difficult ? "★ 已是重难点" : "☆ 标为重难点";
     $("notesBox").classList.toggle("hidden", !lesson.notes);
     $("notesText").textContent = lesson.notes || "";
+    renderAudioStatus();
+  }
+
+  function hasImportedAudio(lesson) {
+    if (!lesson || !lesson.audioName || !(window.Native && Native.hasImportedAudio)) return false;
+    try { return Boolean(Native.hasImportedAudio(lesson.id)); } catch (_) { return false; }
+  }
+
+  function renderAudioStatus() {
+    if (!practice) return;
+    const lesson = practice.lesson;
+    const available = hasImportedAudio(lesson);
+    $("audioStatus").textContent = available
+      ? `已导入：${lesson.audioName}。整篇播放时优先使用此 MP3。`
+      : lesson.audioName
+        ? "原 MP3 文件已丢失，请重新导入。"
+        : "未导入 MP3，整篇播放时使用系统语音。";
+    $("importAudioBtn").textContent = available ? "更换 MP3" : "导入 MP3";
+    $("removeAudioBtn").classList.toggle("hidden", !available && !lesson.audioName);
+  }
+
+  window.onNativeAudioImported = (lessonId, fileName) => {
+    const lesson = data.lessons.find(item => item.id === lessonId);
+    if (!lesson) return;
+    lesson.audioName = fileName || "已导入的音频.mp3";
+    saveData();
+    if (practice && practice.lesson.id === lessonId) renderAudioStatus();
+    toast("MP3 已导入，整篇播放时将优先使用");
+  };
+
+  function importLessonAudio() {
+    if (!practice) return;
+    if (window.Native && Native.pickAudio) Native.pickAudio(practice.lesson.id);
+    else toast("请在安卓 APP 中导入 MP3");
+  }
+
+  function removeLessonAudio() {
+    if (!practice || !practice.lesson.audioName) return;
+    if (!confirm("确定移除这篇内容的 MP3 吗？")) return;
+    if (window.Native && Native.removeImportedAudio) Native.removeImportedAudio(practice.lesson.id);
+    delete practice.lesson.audioName;
+    saveData();
+    renderAudioStatus();
+    toast("MP3 已移除");
   }
 
   function movePractice(delta) {
@@ -375,6 +419,14 @@
   function playWhole(withExplanation = false) {
     if (!practice) return;
     const lesson = practice.lesson;
+    if (hasImportedAudio(lesson) && window.Native && Native.playImportedAudio) {
+      try {
+        if (Native.playImportedAudio(lesson.id, lesson.title)) {
+          toast("正在优先播放已导入的 MP3");
+          return;
+        }
+      } catch (_) {}
+    }
     const body = segmentsOf(lesson);
     if (!withExplanation) return startSpeech(body);
     const lines = [];
@@ -513,6 +565,8 @@
   $("playAllBtn").addEventListener("click", () => playWhole(false));
   $("playExplainBtn").addEventListener("click", () => playWhole(true));
   $("stopPlayBtn").addEventListener("click", stopSpeech);
+  $("importAudioBtn").addEventListener("click", importLessonAudio);
+  $("removeAudioBtn").addEventListener("click", removeLessonAudio);
   $("toggleDifficultBtn").addEventListener("click", () => {
     if (!practice) return;
     const review = reviewOf(practice.lesson, practice.indices[practice.position]);
@@ -522,6 +576,7 @@
   });
   $("deleteLessonBtn").addEventListener("click", () => {
     if (!practice || !confirm(`确定删除《${practice.lesson.title}》及其学习记录吗？`)) return;
+    if (window.Native && Native.removeImportedAudio) Native.removeImportedAudio(practice.lesson.id);
     data.lessons = data.lessons.filter(x => x.id !== practice.lesson.id);
     saveData(); practice = null; showView("home"); toast("篇目已删除");
   });

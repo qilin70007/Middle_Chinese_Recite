@@ -83,3 +83,8 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 
 .setting-hint{font-size:.86rem;line-height:1.55;margin:-11px 0 12px!important}
 .voice-preview{width:100%;margin:0 0 20px}
+
+.audio-import{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line)}
+.audio-import p{margin:0 0 9px;color:var(--ink);font-size:.9rem;line-height:1.5}
+.audio-import small{display:block;margin-top:9px;color:var(--muted);line-height:1.45}
+.secondary.compact{padding:8px 12px;font-size:.88rem}
