@@ -253,6 +253,45 @@
     }).join("");
   }
 
+  let fullTextFitTimer = null;
+
+  function fitFullText() {
+    if (!practice || practice.mode !== "full" ||
+        !window.matchMedia("(orientation: landscape)").matches) return;
+    const text = $("segmentText");
+    if (!text || text.clientWidth < 40 || text.clientHeight < 40) return;
+    let low = 16;
+    let high = 84;
+    let best = low;
+    for (let step = 0; step < 10; step++) {
+      const size = (low + high) / 2;
+      text.style.fontSize = size.toFixed(2) + "px";
+      const fits = text.scrollWidth <= text.clientWidth + 1 &&
+        text.scrollHeight <= text.clientHeight + 1;
+      if (fits) {
+        best = size;
+        low = size;
+      } else {
+        high = size;
+      }
+    }
+    text.style.fontSize = Math.max(16, best - 0.5).toFixed(1) + "px";
+  }
+
+  function scheduleFullTextFit() {
+    clearTimeout(fullTextFitTimer);
+    requestAnimationFrame(() => {
+      fitFullText();
+      fullTextFitTimer = setTimeout(fitFullText, 120);
+    });
+  }
+
+  function exitFullTextMode() {
+    if (!practice || practice.mode !== "full") return;
+    practice.mode = "read";
+    renderPractice();
+  }
+
   function renderPractice() {
     if (!practice) return;
     const { lesson, indices, position, mode } = practice;
@@ -285,6 +324,8 @@
     $("notesBox").classList.toggle("hidden", !lesson.notes);
     $("notesText").textContent = lesson.notes || "";
     renderAudioStatus();
+    if (fullTextMode) scheduleFullTextFit();
+    else $("segmentText").style.fontSize = "";
   }
 
   function hasImportedAudio(lesson) {
@@ -572,6 +613,7 @@
   $("stopPlayBtn").addEventListener("click", stopSpeech);
   $("fullTextPlayBtn").addEventListener("click", () => playWhole(false));
   $("fullTextStopBtn").addEventListener("click", stopSpeech);
+  $("fullTextExitBtn").addEventListener("click", exitFullTextMode);
   $("importAudioBtn").addEventListener("click", importLessonAudio);
   $("removeAudioBtn").addEventListener("click", removeLessonAudio);
   $("toggleDifficultBtn").addEventListener("click", () => {
@@ -600,16 +642,16 @@
   window.addEventListener("resize", () => {
     clearTimeout(orientationTimer);
     orientationTimer = setTimeout(() => {
-      if (practice && practice.mode === "full" &&
-          !window.matchMedia("(orientation: landscape)").matches) {
-        practice.mode = "read";
-        renderPractice();
+      if (practice && practice.mode === "full") {
+        if (!window.matchMedia("(orientation: landscape)").matches) exitFullTextMode();
+        else scheduleFullTextFit();
       }
     }, 180);
   });
 
   window.appBack = () => {
     if (!$("editorModal").classList.contains("hidden")) { closeEditor(); return true; }
+    if (practice && practice.mode === "full") { exitFullTextMode(); return true; }
     if (practice) { closePractice(); return true; }
     return false;
   };

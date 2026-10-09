@@ -132,3 +132,98 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
     padding:0 24px;
   }
 }
+
+@media(orientation:landscape){
+  .practice-view.full-text-mode{
+    position:fixed;
+    inset:0;
+    z-index:40;
+    width:100%;
+    max-width:none;
+    height:100%;
+    padding:0;
+    overflow:hidden;
+    background:#fffdf8;
+  }
+  .practice-view.full-text-mode .practice-head,
+  .practice-view.full-text-mode .progress-track,
+  .practice-view.full-text-mode .mode-tabs,
+  .practice-view.full-text-mode .nav-row,
+  .practice-view.full-text-mode .assessment,
+  .practice-view.full-text-mode .play-card,
+  .practice-view.full-text-mode .notes-box,
+  .practice-view.full-text-mode .practice-actions{
+    display:none!important;
+  }
+  .practice-view.full-text-mode .recite-card{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    min-height:0;
+    max-height:none;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    border:0;
+    border-radius:0;
+    box-shadow:none;
+    background:#fffdf8;
+  }
+  .practice-view.full-text-mode .segment-index,
+  .practice-view.full-text-mode .memory-hint{
+    display:none;
+  }
+  .practice-view.full-text-mode .segment-text,
+  .practice-view.poetry-text.full-text-mode .segment-text{
+    position:absolute;
+    inset:10px 16px 56px;
+    width:auto;
+    height:auto;
+    margin:0;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:auto;
+    white-space:pre-wrap;
+    word-break:normal;
+    overflow-wrap:anywhere;
+    text-align:center;
+    line-height:1.42;
+    letter-spacing:0;
+    font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif;
+  }
+  .practice-view.full-text-mode .full-text-actions{
+    position:absolute;
+    z-index:3;
+    left:50%;
+    bottom:max(7px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    width:max-content;
+    max-width:calc(100% - 24px);
+    margin:0;
+    padding:5px 8px;
+    border:1px solid rgba(35,117,106,.15);
+    border-radius:999px;
+    background:rgba(255,255,255,.90);
+    box-shadow:0 3px 14px rgba(35,55,50,.12);
+    backdrop-filter:blur(10px);
+  }
+  .practice-view.full-text-mode .full-text-actions button{
+    min-width:0;
+    height:36px;
+    padding:0 13px;
+    border-radius:999px;
+    font-size:.86rem;
+    white-space:nowrap;
+  }
+  .practice-view.full-text-mode .full-text-actions .listen-btn{
+    min-width:0;
+    padding:0 16px;
+  }
+}
