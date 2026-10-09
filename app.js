@@ -43,7 +43,7 @@
     return {
       version: 1,
       lessons: sampleLessons(),
-      settings: { rate: 0.8, pause: 1, repeat: 2 }
+      settings: { rate: 0.8, pause: 1, repeat: 2, voice: "female" }
     };
   }
 
@@ -51,7 +51,7 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(STORE_KEY));
       if (parsed && Array.isArray(parsed.lessons)) {
-        parsed.settings = Object.assign({ rate: 0.8, pause: 1, repeat: 2 }, parsed.settings || {});
+        parsed.settings = Object.assign({ rate: 0.8, pause: 1, repeat: 2, voice: "female" }, parsed.settings || {});
         parsed.lessons.forEach(lesson => {
           lesson.reviews = lesson.reviews || {};
           lesson.createdAt = lesson.createdAt || Date.now();
@@ -318,24 +318,49 @@
   }
 
   function speechSettings() {
-    return data.settings || { rate: 0.8, pause: 1, repeat: 2 };
+    return data.settings || { rate: 0.8, pause: 1, repeat: 2, voice: "female" };
+  }
+
+  const voiceDescriptions = {
+    female: "优先选择手机中较自然的中文女声，适合课文和文言文跟读。",
+    male: "音调更沉稳，适合文言文、故事和整篇聆听。",
+    poetry: "语速更舒缓、句间停顿更长，适合古诗和韵文背诵。"
+  };
+
+  function normalizedVoice(value) {
+    return ["female", "male", "poetry"].includes(value) ? value : "female";
+  }
+
+  function pickBrowserVoice(style) {
+    if (!("speechSynthesis" in window)) return null;
+    const voices = speechSynthesis.getVoices().filter(voice =>
+      /^(zh|cmn)/i.test(voice.lang || "") || /chinese|中文|普通话/i.test(voice.name || ""));
+    if (!voices.length) return null;
+    const tokens = style === "male"
+      ? /male|man|boy|yunxi|yunyang|yunjian|kangkang|gang|liang/i
+      : /female|woman|girl|xiaoxiao|xiaoyi|tingting|yaoyao|huihui|meimei|zhiyu/i;
+    return voices.find(voice => tokens.test(voice.name || "")) || voices[style === "male" && voices.length > 1 ? 1 : 0];
   }
 
   function startSpeech(lines, repeatOverride) {
     const clean = lines.map(x => String(x).trim()).filter(Boolean);
     if (!clean.length) return toast("没有可朗读的内容");
     const settings = speechSettings();
+    const voice = normalizedVoice(settings.voice);
     if (window.Native && Native.startPlayback) {
       Native.startPlayback(JSON.stringify(clean), Number(settings.rate),
-        Math.round(Number(settings.pause) * 1000), repeatOverride || Number(settings.repeat));
+        Math.round(Number(settings.pause) * 1000), repeatOverride || Number(settings.repeat), voice);
       return;
     }
     if ("speechSynthesis" in window) {
       speechSynthesis.cancel();
+      const selectedVoice = pickBrowserVoice(voice);
       clean.forEach(line => {
         const utterance = new SpeechSynthesisUtterance(line);
         utterance.lang = "zh-CN";
-        utterance.rate = Number(settings.rate);
+        utterance.voice = selectedVoice;
+        utterance.rate = Number(settings.rate) * (voice === "poetry" ? 0.86 : voice === "male" ? 0.96 : 1);
+        utterance.pitch = voice === "male" ? 0.82 : voice === "poetry" ? 0.94 : 1.06;
         speechSynthesis.speak(utterance);
       });
       toast("已开始朗读");
@@ -376,8 +401,10 @@
     data.settings.rate = Number($("speechRate").value);
     data.settings.pause = Number($("speechPause").value);
     data.settings.repeat = Number($("speechRepeat").value);
+    data.settings.voice = normalizedVoice($("speechVoice").value);
     $("rateOutput").textContent = data.settings.rate.toFixed(1) + "×";
     $("pauseOutput").textContent = data.settings.pause.toFixed(1) + " 秒";
+    $("voiceHint").textContent = voiceDescriptions[data.settings.voice];
     saveData();
   }
 
@@ -386,7 +413,19 @@
     $("speechRate").value = settings.rate;
     $("speechPause").value = settings.pause;
     $("speechRepeat").value = settings.repeat;
+    $("speechVoice").value = normalizedVoice(settings.voice);
     updateSettings();
+  }
+
+  function previewVoice() {
+    const voice = normalizedVoice($("speechVoice").value);
+    const samples = {
+      female: "让我们开始今天的背诵。先听清楚，再跟着读一遍。",
+      male: "让我们开始今天的背诵。放慢一点，读准每一个字。",
+      poetry: "明月松间照，清泉石上流。"
+    };
+    updateSettings();
+    startSpeech([samples[voice]], 1);
   }
 
   function exportBackup() {
@@ -415,7 +454,7 @@
         if (!restored || !Array.isArray(restored.lessons)) throw new Error("格式不正确");
         if (!confirm(`将导入 ${restored.lessons.length} 个篇目并覆盖当前数据，继续吗？`)) return;
         data = restored;
-        data.settings = Object.assign({rate:.8,pause:1,repeat:2}, data.settings || {});
+        data.settings = Object.assign({rate:.8,pause:1,repeat:2,voice:"female"}, data.settings || {});
         saveData();
         populateSettings();
         renderHome();
@@ -486,7 +525,8 @@
     data.lessons = data.lessons.filter(x => x.id !== practice.lesson.id);
     saveData(); practice = null; showView("home"); toast("篇目已删除");
   });
-  ["speechRate","speechPause","speechRepeat"].forEach(id => $(id).addEventListener("input", updateSettings));
+  ["speechRate","speechPause","speechRepeat","speechVoice"].forEach(id => $(id).addEventListener("input", updateSettings));
+  $("previewVoiceBtn").addEventListener("click", previewVoice);
   $("ttsSettingsBtn").addEventListener("click", () => {
     if (window.Native && Native.openTtsSettings) Native.openTtsSettings();
     else toast("请到系统设置中选择中文语音");

@@ -79,7 +79,7 @@ public class MainActivity extends Activity {
 
     public final class AndroidBridge {
         @JavascriptInterface
-        public void startPlayback(String jsonLines, double rate, int pauseMs, int repeat) {
+        public void startPlayback(String jsonLines, double rate, int pauseMs, int repeat, String voiceStyle) {
             try {
                 JSONArray array = new JSONArray(jsonLines);
                 ArrayList<String> lines = new ArrayList<>();
@@ -94,6 +94,8 @@ public class MainActivity extends Activity {
                 intent.putExtra(PlaybackService.EXTRA_RATE, (float) Math.max(0.5, Math.min(1.4, rate)));
                 intent.putExtra(PlaybackService.EXTRA_PAUSE, Math.max(0, Math.min(5000, pauseMs)));
                 intent.putExtra(PlaybackService.EXTRA_REPEAT, Math.max(1, Math.min(5, repeat)));
+                String style = "male".equals(voiceStyle) || "poetry".equals(voiceStyle) ? voiceStyle : "female";
+                intent.putExtra(PlaybackService.EXTRA_VOICE_STYLE, style);
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
                 runOnUiThread(() -> Toast.makeText(MainActivity.this,
                         "已开始朗读，息屏后仍会继续", Toast.LENGTH_SHORT).show());

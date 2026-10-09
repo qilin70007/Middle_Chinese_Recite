@@ -80,3 +80,6 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 .hidden{display:none!important}
 @media(min-width:620px){.view{padding-left:28px;padding-right:28px}.lesson-list{grid-template-columns:1fr 1fr}.modal{align-items:center}.modal-sheet{border-radius:26px;max-height:88vh}.recite-card{min-height:330px}}
 @media(max-width:370px){body{font-size:16px}.stats{gap:6px}.stat-card{padding:12px 4px}.form-grid{grid-template-columns:1fr}.segment-text{font-size:1.55rem}}
+
+.setting-hint{font-size:.86rem;line-height:1.55;margin:-11px 0 12px!important}
+.voice-preview{width:100%;margin:0 0 20px}
