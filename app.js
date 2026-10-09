@@ -262,6 +262,7 @@
     const review = reviewOf(lesson, actualIndex);
     $("practiceTitle").textContent = lesson.title;
     $("practiceMeta").textContent = [lesson.type, lesson.author].filter(Boolean).join(" · ");
+    $("practiceView").classList.toggle("poetry-text", lesson.type === "古诗");
     $("segmentIndex").textContent = `第 ${position + 1} / ${indices.length} 句`;
     $("practiceProgress").style.width = `${(position + 1) / indices.length * 100}%`;
     $("modeTabs").querySelectorAll("button").forEach(button =>

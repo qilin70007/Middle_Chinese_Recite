@@ -64,7 +64,7 @@ select,input,textarea{width:100%;border:1px solid #d8d2c5;border-radius:12px;bac
 .mode-tabs button{border:0;background:none;border-radius:10px;padding:9px;color:var(--muted);font-weight:750}.mode-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .recite-card{min-height:260px;background:var(--card);border-radius:26px;box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-top:6px solid var(--green)}
 .segment-index{align-self:flex-start;font-size:.78rem;color:var(--muted)}
-.segment-text{font-family:serif;font-size:clamp(1.65rem,7vw,2.25rem);line-height:1.8;margin:20px 0;white-space:pre-wrap;word-break:break-word}
+.segment-text{font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif;font-size:clamp(1.45rem,6vw,1.9rem);font-weight:400;line-height:1.65;margin:16px 0;white-space:pre-wrap;word-break:break-word}
 .memory-hint{color:var(--muted);font-size:.84rem;margin:4px 0}.reveal-btn{border:1px dashed #c3b9a5;background:#fffaf0;border-radius:12px;padding:12px;color:var(--gold)}
 .nav-row{display:grid;grid-template-columns:54px 1fr 54px;gap:12px;align-items:center;margin:18px 0}
 .icon-btn.big{width:52px;height:52px;font-size:1.4rem}.listen-btn{height:52px;border:0;border-radius:15px;background:var(--green);color:white;font-weight:800}
@@ -88,3 +88,9 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 .audio-import p{margin:0 0 9px;color:var(--ink);font-size:.9rem;line-height:1.5}
 .audio-import small{display:block;margin-top:9px;color:var(--muted);line-height:1.45}
 .secondary.compact{padding:8px 12px;font-size:.88rem}
+
+@media(orientation:landscape){
+  .recite-card{min-height:190px;padding:16px 20px}
+  .segment-text{font-size:clamp(1.25rem,3vw,1.45rem);line-height:1.5;margin:10px 0}
+  .practice-view.poetry-text .segment-text{white-space:nowrap;word-break:keep-all;overflow-wrap:normal;letter-spacing:0}
+}
