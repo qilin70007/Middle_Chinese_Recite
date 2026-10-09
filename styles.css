@@ -94,3 +94,41 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
   .segment-text{font-size:clamp(1.25rem,3vw,1.45rem);line-height:1.5;margin:10px 0}
   .practice-view.poetry-text .segment-text{white-space:nowrap;word-break:keep-all;overflow-wrap:normal;letter-spacing:0}
 }
+
+.landscape-only,.full-text-actions{display:none}
+@media(orientation:landscape){
+  .landscape-only{display:inline-block}
+  .practice-view.full-text-mode .progress-track{display:none}
+  .practice-view.full-text-mode .recite-card{
+    min-height:170px;
+    max-height:calc(100vh - 205px);
+    padding:14px 20px;
+    justify-content:flex-start;
+    overflow-y:auto;
+  }
+  .practice-view.full-text-mode .segment-text,
+  .practice-view.poetry-text.full-text-mode .segment-text{
+    width:100%;
+    font-size:clamp(1.15rem,2.6vw,1.35rem);
+    line-height:1.65;
+    margin:8px 0;
+    white-space:pre-wrap;
+    word-break:normal;
+    overflow-wrap:anywhere;
+    text-align:center;
+  }
+  .practice-view.full-text-mode .memory-hint{display:none}
+  .practice-view.full-text-mode .nav-row,
+  .practice-view.full-text-mode .assessment{display:none}
+  .practice-view.full-text-mode .full-text-actions{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin:10px 0 12px;
+  }
+  .practice-view.full-text-mode .full-text-actions .listen-btn{
+    min-width:180px;
+    padding:0 24px;
+  }
+}

@@ -118,6 +118,7 @@
       <button data-mode="read" class="active">看读</button>
       <button data-mode="cloze">挖空</button>
       <button data-mode="recite">默背</button>
+      <button data-mode="full" class="landscape-only">全文</button>
     </div>
     <section class="recite-card" id="reciteCard">
       <div class="segment-index" id="segmentIndex"></div>
@@ -125,6 +126,10 @@
       <button id="revealBtn" class="reveal-btn hidden">点一下显示原文</button>
       <p id="memoryHint" class="memory-hint"></p>
     </section>
+    <div class="full-text-actions" id="fullTextActions">
+      <button class="listen-btn" id="fullTextPlayBtn">▶ 播放全文</button>
+      <button class="danger-text" id="fullTextStopBtn">停止</button>
+    </div>
     <div class="nav-row">
       <button id="prevBtn" class="icon-btn big">←</button>
       <button id="speakCurrentBtn" class="listen-btn">▶ 读这一句</button>

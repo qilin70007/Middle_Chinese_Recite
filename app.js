@@ -260,23 +260,27 @@
     const actualIndex = indices[position];
     const segment = allSegments[actualIndex] || "";
     const review = reviewOf(lesson, actualIndex);
+    const fullTextMode = mode === "full";
+    $("practiceView").classList.toggle("full-text-mode", fullTextMode);
     $("practiceTitle").textContent = lesson.title;
     $("practiceMeta").textContent = [lesson.type, lesson.author].filter(Boolean).join(" · ");
     $("practiceView").classList.toggle("poetry-text", lesson.type === "古诗");
-    $("segmentIndex").textContent = `第 ${position + 1} / ${indices.length} 句`;
-    $("practiceProgress").style.width = `${(position + 1) / indices.length * 100}%`;
+    $("segmentIndex").textContent = fullTextMode ? `全文 · 共 ${allSegments.length} 句` : `第 ${position + 1} / ${indices.length} 句`;
+    $("practiceProgress").style.width = fullTextMode ? "100%" : `${(position + 1) / indices.length * 100}%`;
     $("modeTabs").querySelectorAll("button").forEach(button =>
       button.classList.toggle("active", button.dataset.mode === mode));
-    $("revealBtn").classList.toggle("hidden", mode !== "recite" || practice.revealed);
-    if (mode === "read" || practice.revealed) $("segmentText").textContent = segment;
+    $("revealBtn").classList.toggle("hidden", fullTextMode || mode !== "recite" || practice.revealed);
+    if (fullTextMode) $("segmentText").textContent = lesson.content;
+    else if (mode === "read" || practice.revealed) $("segmentText").textContent = segment;
     else if (mode === "cloze") $("segmentText").textContent = cloze(segment);
     else $("segmentText").textContent = "＿＿＿＿＿＿＿＿";
-    $("memoryHint").textContent = mode === "recite" && !practice.revealed
-      ? `开头提示：${segment.replace(/[，。！？；、“”‘’]/g, "").slice(0, 2)}……`
-      : review.level === "new" ? "先读准，再合上原文背。" :
-        `当前状态：${{mastered:"已掌握",vague:"模糊",unfamiliar:"不熟"}[review.level] || "未学习"}`;
-    $("prevBtn").disabled = position === 0;
-    $("nextBtn").disabled = position === indices.length - 1;
+    $("memoryHint").textContent = fullTextMode ? "可边看全文边播放，横屏显示空间更大。" :
+      mode === "recite" && !practice.revealed
+        ? `开头提示：${segment.replace(/[，。！？；、“”‘’]/g, "").slice(0, 2)}……`
+        : review.level === "new" ? "先读准，再合上原文背。" :
+          `当前状态：${{mastered:"已掌握",vague:"模糊",unfamiliar:"不熟"}[review.level] || "未学习"}`;
+    $("prevBtn").disabled = fullTextMode || position === 0;
+    $("nextBtn").disabled = fullTextMode || position === indices.length - 1;
     $("toggleDifficultBtn").textContent = review.difficult ? "★ 已是重难点" : "☆ 标为重难点";
     $("notesBox").classList.toggle("hidden", !lesson.notes);
     $("notesText").textContent = lesson.notes || "";
@@ -566,6 +570,8 @@
   $("playAllBtn").addEventListener("click", () => playWhole(false));
   $("playExplainBtn").addEventListener("click", () => playWhole(true));
   $("stopPlayBtn").addEventListener("click", stopSpeech);
+  $("fullTextPlayBtn").addEventListener("click", () => playWhole(false));
+  $("fullTextStopBtn").addEventListener("click", stopSpeech);
   $("importAudioBtn").addEventListener("click", importLessonAudio);
   $("removeAudioBtn").addEventListener("click", removeLessonAudio);
   $("toggleDifficultBtn").addEventListener("click", () => {
@@ -589,6 +595,18 @@
   });
   $("exportBtn").addEventListener("click", exportBackup);
   $("importInput").addEventListener("change", event => importBackup(event.target.files[0]));
+
+  let orientationTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(orientationTimer);
+    orientationTimer = setTimeout(() => {
+      if (practice && practice.mode === "full" &&
+          !window.matchMedia("(orientation: landscape)").matches) {
+        practice.mode = "read";
+        renderPractice();
+      }
+    }, 180);
+  });
 
   window.appBack = () => {
     if (!$("editorModal").classList.contains("hidden")) { closeEditor(); return true; }
