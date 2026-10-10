@@ -87,7 +87,7 @@ public class MainActivity extends Activity {
 
     public final class AndroidBridge {
         @JavascriptInterface
-        public void startPlayback(String jsonLines, double rate, int pauseMs, int repeat, String voiceStyle) {
+        public void startPlayback(String jsonLines, double rate, int pauseMs, int repeat, String voiceStyle, boolean loopPlayback) {
             try {
                 JSONArray array = new JSONArray(jsonLines);
                 ArrayList<String> lines = new ArrayList<>();
@@ -102,7 +102,9 @@ public class MainActivity extends Activity {
                 intent.putExtra(PlaybackService.EXTRA_RATE, (float) Math.max(0.5, Math.min(1.4, rate)));
                 intent.putExtra(PlaybackService.EXTRA_PAUSE, Math.max(0, Math.min(5000, pauseMs)));
                 intent.putExtra(PlaybackService.EXTRA_REPEAT, Math.max(1, Math.min(5, repeat)));
-                String style = "male".equals(voiceStyle) || "poetry".equals(voiceStyle) ? voiceStyle : "female";
+                intent.putExtra(PlaybackService.EXTRA_LOOP, loopPlayback);
+                String style = "male".equals(voiceStyle) || "poetry".equals(voiceStyle) ||
+                        "yunjian".equals(voiceStyle) ? voiceStyle : "female";
                 intent.putExtra(PlaybackService.EXTRA_VOICE_STYLE, style);
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
                 runOnUiThread(() -> Toast.makeText(MainActivity.this,
@@ -143,6 +145,7 @@ public class MainActivity extends Activity {
             intent.setAction(PlaybackService.ACTION_PLAY_AUDIO);
             intent.putExtra(PlaybackService.EXTRA_AUDIO_PATH, audio.getAbsolutePath());
             intent.putExtra(PlaybackService.EXTRA_AUDIO_TITLE, title == null ? "背诵音频" : title);
+            intent.putExtra(PlaybackService.EXTRA_LOOP, true);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
             return true;
         }

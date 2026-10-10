@@ -33,6 +33,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     public static final String EXTRA_RATE = "rate";
     public static final String EXTRA_PAUSE = "pause";
     public static final String EXTRA_REPEAT = "repeat";
+    public static final String EXTRA_LOOP = "loop";
     public static final String EXTRA_VOICE_STYLE = "voice_style";
     private static final String CHANNEL_ID = "recite_playback";
     private static final int NOTIFICATION_ID = 7007;
@@ -44,6 +45,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     private int repeatIndex;
     private int repeat = 1;
     private int pauseMs = 800;
+    private boolean loopPlayback;
     private float rate = 0.8f;
     private String voiceStyle = "female";
     private PowerManager.WakeLock wakeLock;
@@ -76,6 +78,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         if (ACTION_PLAY_AUDIO.equals(intent.getAction())) {
             String path = intent.getStringExtra(EXTRA_AUDIO_PATH);
             String title = intent.getStringExtra(EXTRA_AUDIO_TITLE);
+            loopPlayback = intent.getBooleanExtra(EXTRA_LOOP, true);
             if (path == null || path.isEmpty()) {
                 stopPlayback();
                 return START_NOT_STICKY;
@@ -91,12 +94,14 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
                 rate = intent.getFloatExtra(EXTRA_RATE, 0.8f);
                 pauseMs = intent.getIntExtra(EXTRA_PAUSE, 800);
                 repeat = intent.getIntExtra(EXTRA_REPEAT, 1);
+                loopPlayback = intent.getBooleanExtra(EXTRA_LOOP, false);
                 voiceStyle = intent.getStringExtra(EXTRA_VOICE_STYLE);
-                if (!"male".equals(voiceStyle) && !"poetry".equals(voiceStyle)) voiceStyle = "female";
+                if (!"male".equals(voiceStyle) && !"poetry".equals(voiceStyle) &&
+                        !"yunjian".equals(voiceStyle)) voiceStyle = "female";
                 lineIndex = 0;
                 repeatIndex = 0;
                 startForeground(NOTIFICATION_ID, buildNotification("正在准备朗读…"));
-                if (!wakeLock.isHeld()) wakeLock.acquire(60 * 60 * 1000L);
+                if (!wakeLock.isHeld()) wakeLock.acquire();
                 if (ready) {
                     configureVoice();
                     speakCurrent();
@@ -130,6 +135,9 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         if ("male".equals(voiceStyle)) {
             effectiveRate = rate * 0.96f;
             pitch = 0.82f;
+        } else if ("yunjian".equals(voiceStyle)) {
+            effectiveRate = rate * 0.80f;
+            pitch = 0.94f;
         } else if ("poetry".equals(voiceStyle)) {
             effectiveRate = rate * 0.86f;
             pitch = 0.94f;
@@ -152,7 +160,8 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         if (chinese.isEmpty()) return null;
         chinese.sort(Comparator.comparingInt((Voice voice) -> voiceScore(voice, style)).reversed()
                 .thenComparing(Voice::getName));
-        if ("male".equals(style) && !containsGenderMatch(chinese.get(0), "male") && chinese.size() > 1) {
+        boolean maleStyle = "male".equals(style) || "yunjian".equals(style);
+        if (maleStyle && !containsGenderMatch(chinese.get(0), "male") && chinese.size() > 1) {
             return chinese.get(1);
         }
         return chinese.get(0);
@@ -163,7 +172,8 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         int score = voice.getQuality();
         if (!voice.isNetworkConnectionRequired()) score += 30;
         if (name.contains("natural") || name.contains("neural") || name.contains("premium")) score += 500;
-        if ("male".equals(style) && containsGenderMatch(voice, "male")) score += 1000;
+        if ("yunjian".equals(style) && (name.contains("yunjian") || name.contains("云健"))) score += 3000;
+        if (("male".equals(style) || "yunjian".equals(style)) && containsGenderMatch(voice, "male")) score += 1000;
         if (("female".equals(style) || "poetry".equals(style)) && containsGenderMatch(voice, "female")) score += 1000;
         return score;
     }
@@ -177,6 +187,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     }
 
     private int styledPauseMs() {
+        if ("yunjian".equals(voiceStyle)) return 0;
         return "poetry".equals(voiceStyle) ? Math.max(1200, pauseMs) : pauseMs;
     }
 
@@ -185,7 +196,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         if (tts != null) tts.stop();
         releaseMediaPlayer();
         startForeground(NOTIFICATION_ID, buildNotification("正在播放 MP3：" + (title == null ? "背诵音频" : title)));
-        if (!wakeLock.isHeld()) wakeLock.acquire(60 * 60 * 1000L);
+        if (!wakeLock.isHeld()) wakeLock.acquire();
         try {
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
@@ -193,6 +204,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build());
             mediaPlayer.setDataSource(path);
+            mediaPlayer.setLooping(loopPlayback);
             mediaPlayer.setOnPreparedListener(MediaPlayer::start);
             mediaPlayer.setOnCompletionListener(player -> stopPlayback());
             mediaPlayer.setOnErrorListener((player, what, extra) -> {
@@ -217,9 +229,17 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     }
 
     private void speakCurrent() {
-        if (!ready || lineIndex >= lines.size()) {
+        if (!ready || lines.isEmpty()) {
             stopPlayback();
             return;
+        }
+        if (lineIndex >= lines.size()) {
+            if (!loopPlayback) {
+                stopPlayback();
+                return;
+            }
+            lineIndex = 0;
+            repeatIndex = 0;
         }
         String line = lines.get(lineIndex);
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
