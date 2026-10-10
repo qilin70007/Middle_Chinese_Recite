@@ -227,3 +227,8 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
     padding:0 16px;
   }
 }
+
+.mode-tabs{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.mode-tabs button{min-width:0;padding:9px 3px;font-size:.92rem;white-space:nowrap}
+.recite-card{font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif}
+.settings-card input:disabled{opacity:.48}

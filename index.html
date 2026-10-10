@@ -73,6 +73,7 @@
         <select id="speechVoice">
           <option value="female" selected>自然女声</option>
           <option value="male">沉稳男声</option>
+          <option value="yunjian">云健男声（古文）</option>
           <option value="poetry">古诗朗诵</option>
         </select>
       </label>
@@ -117,8 +118,8 @@
     <div class="mode-tabs" id="modeTabs">
       <button data-mode="read" class="active">看读</button>
       <button data-mode="cloze">挖空</button>
-      <button data-mode="recite">默背</button>
-      <button data-mode="full" class="landscape-only">全文</button>
+      <button data-mode="recite">背默</button>
+      <button data-mode="full">全文</button>
     </div>
     <section class="recite-card" id="reciteCard">
       <div class="segment-index" id="segmentIndex"></div>
@@ -127,7 +128,7 @@
       <p id="memoryHint" class="memory-hint"></p>
     </section>
     <div class="full-text-actions" id="fullTextActions">
-      <button class="listen-btn" id="fullTextPlayBtn">▶ 播放全文</button>
+      <button class="listen-btn" id="fullTextPlayBtn">▶ 循环播放</button>
       <button class="danger-text" id="fullTextStopBtn">停止</button>
       <button class="text-btn" id="fullTextExitBtn">退出全文</button>
     </div>
@@ -145,10 +146,10 @@
       </div>
     </section>
     <section class="play-card">
-      <div><h2>车载 / 息屏播放</h2><p>播放交给安卓系统，锁屏后仍会继续。</p></div>
+      <div><h2>车载 / 息屏播放</h2><p>锁屏后继续播放；不按停止将一直循环。</p></div>
       <div class="button-row">
-        <button class="secondary" id="playAllBtn">正文整篇</button>
-        <button class="secondary" id="playExplainBtn">讲解＋正文</button>
+        <button class="secondary" id="playAllBtn">正文循环</button>
+        <button class="secondary" id="playExplainBtn">讲解＋正文循环</button>
         <button class="danger-text" id="stopPlayBtn">停止</button>
       </div>
       <div class="audio-import">

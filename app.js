@@ -338,7 +338,7 @@
     const lesson = practice.lesson;
     const available = hasImportedAudio(lesson);
     $("audioStatus").textContent = available
-      ? `已导入：${lesson.audioName}。整篇播放时优先使用此 MP3。`
+      ? `已导入：${lesson.audioName}。播放全文时优先使用并持续循环。`
       : lesson.audioName
         ? "原 MP3 文件已丢失，请重新导入。"
         : "未导入 MP3，整篇播放时使用系统语音。";
@@ -414,11 +414,12 @@
   const voiceDescriptions = {
     female: "优先选择手机中较自然的中文女声，适合课文和文言文跟读。",
     male: "音调更沉稳，适合文言文、故事和整篇聆听。",
+    yunjian: "优先使用云健/Yunjian男声；语速降低20%，只按原文标点自然断句，不另加停顿。",
     poetry: "语速更舒缓、句间停顿更长，适合古诗和韵文背诵。"
   };
 
   function normalizedVoice(value) {
-    return ["female", "male", "poetry"].includes(value) ? value : "female";
+    return ["female", "male", "yunjian", "poetry"].includes(value) ? value : "female";
   }
 
   function pickBrowserVoice(style) {
@@ -426,20 +427,24 @@
     const voices = speechSynthesis.getVoices().filter(voice =>
       /^(zh|cmn)/i.test(voice.lang || "") || /chinese|中文|普通话/i.test(voice.name || ""));
     if (!voices.length) return null;
-    const tokens = style === "male"
-      ? /male|man|boy|yunxi|yunyang|yunjian|kangkang|gang|liang/i
+    const maleStyle = style === "male" || style === "yunjian";
+    const tokens = maleStyle
+      ? (style === "yunjian" ? /yunjian|云健/i : /male|man|boy|yunxi|yunyang|yunjian|kangkang|gang|liang/i)
       : /female|woman|girl|xiaoxiao|xiaoyi|tingting|yaoyao|huihui|meimei|zhiyu/i;
-    return voices.find(voice => tokens.test(voice.name || "")) || voices[style === "male" && voices.length > 1 ? 1 : 0];
+    return voices.find(voice => tokens.test(voice.name || "")) || voices[maleStyle && voices.length > 1 ? 1 : 0];
   }
 
-  function startSpeech(lines, repeatOverride) {
+  function startSpeech(lines, repeatOverride, loopPlayback = false) {
     const clean = lines.map(x => String(x).trim()).filter(Boolean);
     if (!clean.length) return toast("没有可朗读的内容");
     const settings = speechSettings();
     const voice = normalizedVoice(settings.voice);
     if (window.Native && Native.startPlayback) {
-      Native.startPlayback(JSON.stringify(clean), Number(settings.rate),
-        Math.round(Number(settings.pause) * 1000), repeatOverride || Number(settings.repeat), voice);
+      const naturalPunctuation = voice === "yunjian";
+      const nativeLines = naturalPunctuation ? [clean.join("\n")] : clean;
+      Native.startPlayback(JSON.stringify(nativeLines), Number(settings.rate),
+        naturalPunctuation ? 0 : Math.round(Number(settings.pause) * 1000),
+        naturalPunctuation ? 1 : (repeatOverride || Number(settings.repeat)), voice, Boolean(loopPlayback));
       return;
     }
     if ("speechSynthesis" in window) {
@@ -449,8 +454,8 @@
         const utterance = new SpeechSynthesisUtterance(line);
         utterance.lang = "zh-CN";
         utterance.voice = selectedVoice;
-        utterance.rate = Number(settings.rate) * (voice === "poetry" ? 0.86 : voice === "male" ? 0.96 : 1);
-        utterance.pitch = voice === "male" ? 0.82 : voice === "poetry" ? 0.94 : 1.06;
+        utterance.rate = Number(settings.rate) * (voice === "yunjian" ? 0.8 : voice === "poetry" ? 0.86 : voice === "male" ? 0.96 : 1);
+        utterance.pitch = voice === "male" ? 0.82 : voice === "yunjian" ? 0.94 : voice === "poetry" ? 0.94 : 1.06;
         speechSynthesis.speak(utterance);
       });
       toast("已开始朗读");
@@ -468,19 +473,19 @@
     if (hasImportedAudio(lesson) && window.Native && Native.playImportedAudio) {
       try {
         if (Native.playImportedAudio(lesson.id, lesson.title)) {
-          toast("正在优先播放已导入的 MP3");
+          toast("正在循环播放已导入的 MP3");
           return;
         }
       } catch (_) {}
     }
     const body = segmentsOf(lesson);
-    if (!withExplanation) return startSpeech(body);
+    if (!withExplanation) return startSpeech(body, undefined, true);
     const lines = [];
     if (lesson.notes) lines.push("先听讲解。", ...splitSegments(lesson.notes));
     lines.push("下面开始背诵正文。");
     const repeat = Number(speechSettings().repeat);
     body.forEach(line => { for (let i = 0; i < repeat; i++) lines.push(line); });
-    startSpeech(lines, 1);
+    startSpeech(lines, 1, true);
   }
 
   function stopSpeech() {
@@ -501,7 +506,9 @@
     data.settings.repeat = Number($("speechRepeat").value);
     data.settings.voice = normalizedVoice($("speechVoice").value);
     $("rateOutput").textContent = data.settings.rate.toFixed(1) + "×";
-    $("pauseOutput").textContent = data.settings.pause.toFixed(1) + " 秒";
+    const punctuationOnly = data.settings.voice === "yunjian";
+    $("speechPause").disabled = punctuationOnly;
+    $("pauseOutput").textContent = punctuationOnly ? "按标点" : data.settings.pause.toFixed(1) + " 秒";
     $("voiceHint").textContent = voiceDescriptions[data.settings.voice];
     saveData();
   }
@@ -520,6 +527,7 @@
     const samples = {
       female: "让我们开始今天的背诵。先听清楚，再跟着读一遍。",
       male: "让我们开始今天的背诵。放慢一点，读准每一个字。",
+      yunjian: "山不在高，有仙则名。水不在深，有龙则灵。",
       poetry: "明月松间照，清泉石上流。"
     };
     updateSettings();
@@ -581,6 +589,10 @@
     }
     const mode = event.target.closest("[data-mode]");
     if (mode && practice) {
+      if (mode.dataset.mode === "full" &&
+          !window.matchMedia("(orientation: landscape)").matches) {
+        return toast("请先将手机横屏，再进入全文模式");
+      }
       practice.mode = mode.dataset.mode; practice.revealed = false; return renderPractice();
     }
     const assessment = event.target.closest("[data-assess]");
