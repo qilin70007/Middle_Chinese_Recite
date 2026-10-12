@@ -200,6 +200,104 @@
     $("editorModal").classList.add("hidden");
   }
 
+  function openBatchImporter() {
+    $("batchModal").classList.remove("hidden");
+    setTimeout(() => $("batchText").focus(), 80);
+  }
+
+  function closeBatchImporter() {
+    $("batchModal").classList.add("hidden");
+    $("batchFileInput").value = "";
+  }
+
+  function normalizeImportedLesson(item) {
+    const title = String(item.title || item["标题"] || item["篇目"] || "").trim();
+    const content = String(item.content || item["正文"] || item["原文"] || "").trim();
+    if (!title || !splitSegments(content).length) return null;
+    let type = String(item.type || item["类型"] || "其他").trim();
+    if (!["古诗","文言文","现代文","其他"].includes(type)) type = "其他";
+    return {
+      id: uid(),
+      title,
+      type,
+      author: String(item.author || item["作者"] || item["出处"] || "").trim(),
+      content,
+      notes: String(item.notes || item["译文"] || item["提示"] || item["译文/提示"] || item["备注"] || "").trim(),
+      createdAt: Date.now(),
+      reviews: {}
+    };
+  }
+
+  function parseBatchText(rawText) {
+    const raw = String(rawText || "").replace(/\r/g, "").trim();
+    if (!raw) throw new Error("请粘贴内容或选择文件");
+    if (/^[\[{]/.test(raw)) {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : parsed.lessons || (parsed.data && parsed.data.lessons);
+      if (!Array.isArray(list)) throw new Error("JSON 中没有篇目数组");
+      return list.map(normalizeImportedLesson).filter(Boolean);
+    }
+    return raw.split(/\n\s*={3,}\s*\n/g).map(block => {
+      const fields = { title:"", type:"其他", author:"", content:[], notes:[] };
+      let section = "";
+      block.split("\n").forEach(originalLine => {
+        const line = originalLine.trimEnd();
+        let match;
+        if ((match = line.match(/^\s*(?:标题|篇目)\s*[:：]\s*(.*)$/))) {
+          fields.title = match[1].trim(); section = ""; return;
+        }
+        if ((match = line.match(/^\s*类型\s*[:：]\s*(.*)$/))) {
+          fields.type = match[1].trim() || "其他"; section = ""; return;
+        }
+        if ((match = line.match(/^\s*(?:作者|出处)\s*[:：]\s*(.*)$/))) {
+          fields.author = match[1].trim(); section = ""; return;
+        }
+        if ((match = line.match(/^\s*(?:正文|原文)\s*[:：]\s*(.*)$/))) {
+          section = "content"; if (match[1]) fields.content.push(match[1]); return;
+        }
+        if ((match = line.match(/^\s*(?:译文(?:\/提示)?|讲解|提示|备注)\s*[:：]\s*(.*)$/))) {
+          section = "notes"; if (match[1]) fields.notes.push(match[1]); return;
+        }
+        if (section && line.trim()) fields[section].push(line.trim());
+      });
+      return normalizeImportedLesson({
+        title:fields.title, type:fields.type, author:fields.author,
+        content:fields.content.join("\n"), notes:fields.notes.join("\n")
+      });
+    }).filter(Boolean);
+  }
+
+  function importBatchLessons() {
+    let lessons;
+    try {
+      lessons = parseBatchText($("batchText").value);
+      if (!lessons.length) throw new Error("没有识别到有效篇目，请检查标题和正文");
+    } catch (error) {
+      return toast("批量导入失败：" + error.message);
+    }
+    if (!confirm(`识别到 ${lessons.length} 篇内容，导入到书架吗？`)) return;
+    const existing = new Set(data.lessons.map(item => item.title.trim() + "\n" + item.content.trim()));
+    const accepted = lessons.filter(item => !existing.has(item.title.trim() + "\n" + item.content.trim()));
+    accepted.reverse().forEach(item => data.lessons.unshift(item));
+    saveData();
+    closeBatchImporter();
+    $("batchText").value = "";
+    renderHome();
+    toast(`已导入 ${accepted.length} 篇${accepted.length < lessons.length ? `，跳过 ${lessons.length - accepted.length} 篇重复内容` : ""}`);
+  }
+
+  function loadBatchFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      $("batchText").value = String(reader.result || "");
+      toast("文件已读取，请确认后导入");
+      $("batchFileInput").value = "";
+    };
+    reader.onerror = () => toast("无法读取所选文件");
+    reader.readAsText(file, "utf-8");
+  }
+
   function saveLesson(event) {
     event.preventDefault();
     const id = $("lessonId").value;
@@ -324,8 +422,10 @@
     $("notesBox").classList.toggle("hidden", !lesson.notes);
     $("notesText").textContent = lesson.notes || "";
     renderAudioStatus();
-    if (fullTextMode) scheduleFullTextFit();
-    else $("segmentText").style.fontSize = "";
+    if (fullTextMode) {
+      scheduleFullTextFit();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFullTextFit);
+    } else $("segmentText").style.fontSize = "";
   }
 
   function hasImportedAudio(lesson) {
@@ -534,43 +634,82 @@
     startSpeech([samples[voice]], 1);
   }
 
-  function exportBackup() {
-    const backup = JSON.stringify({
-      app: "Middle_Chinese_Recite", exportedAt: new Date().toISOString(), data
+  function backupPayload() {
+    return JSON.stringify({
+      app: "Middle_Chinese_Recite", formatVersion: 2,
+      exportedAt: new Date().toISOString(), data
     }, null, 2);
-    const filename = `语文背诵备份_${localDate()}.json`;
-    if (window.Native && Native.saveTextFile) Native.saveTextFile(filename, backup);
-    else {
-      const blob = new Blob([backup], {type:"application/json"});
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(link.href);
+  }
+
+  function exportBackup() {
+    const backup = backupPayload();
+    if (window.Native && Native.exportBackup) {
+      Native.exportBackup(`语文背诵完整备份_${localDate()}.zip`, backup);
+      return;
     }
+    const blob = new Blob([backup], {type:"application/json"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `语文背诵备份_${localDate()}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  function normalizeRestoredData(parsed) {
+    const restored = parsed && (parsed.data || parsed);
+    if (!restored || !Array.isArray(restored.lessons)) throw new Error("格式不正确");
+    restored.settings = Object.assign({rate:.8,pause:1,repeat:2,voice:"female"}, restored.settings || {});
+    restored.lessons.forEach(lesson => {
+      lesson.reviews = lesson.reviews || {};
+      lesson.createdAt = lesson.createdAt || Date.now();
+    });
+    return restored;
+  }
+
+  function applyBackupJson(jsonText, audioCount = 0, archiveReady = false) {
+    try {
+      const restored = normalizeRestoredData(JSON.parse(jsonText));
+      const audioNotice = audioCount ? `，并恢复 ${audioCount} 个 MP3` : "";
+      if (!confirm(`将恢复 ${restored.lessons.length} 个篇目${audioNotice}，并覆盖当前学习数据，继续吗？`)) {
+        if (archiveReady && window.Native && Native.cancelPendingBackup) Native.cancelPendingBackup();
+        return;
+      }
+      let restoredAudio = 0;
+      if (archiveReady && window.Native && Native.applyPendingBackup) {
+        restoredAudio = Number(Native.applyPendingBackup()) || 0;
+        if (restoredAudio < 0) throw new Error("MP3 恢复失败");
+      }
+      data = restored;
+      saveData();
+      populateSettings();
+      renderHome();
+      toast(restoredAudio ? `备份恢复成功，已恢复 ${restoredAudio} 个 MP3` : "备份恢复成功");
+    } catch (error) {
+      if (archiveReady && window.Native && Native.cancelPendingBackup) Native.cancelPendingBackup();
+      toast("无法导入：" + error.message);
+    } finally {
+      $("importInput").value = "";
+    }
+  }
+
+  window.onNativeBackupReady = (jsonText, audioCount, archiveReady) => {
+    applyBackupJson(jsonText, Number(audioCount) || 0, Boolean(archiveReady));
+  };
+
+  function chooseBackup() {
+    if (window.Native && Native.pickBackup) Native.pickBackup();
+    else $("importInput").click();
   }
 
   function importBackup(file) {
     if (!file) return;
+    if (/\.(zip|mcrbackup)$/i.test(file.name || "")) {
+      $("importInput").value = "";
+      return toast("ZIP 完整备份请在安卓 APP 中恢复");
+    }
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        const restored = parsed.data || parsed;
-        if (!restored || !Array.isArray(restored.lessons)) throw new Error("格式不正确");
-        if (!confirm(`将导入 ${restored.lessons.length} 个篇目并覆盖当前数据，继续吗？`)) return;
-        data = restored;
-        data.settings = Object.assign({rate:.8,pause:1,repeat:2,voice:"female"}, data.settings || {});
-        saveData();
-        populateSettings();
-        renderHome();
-        toast("备份恢复成功");
-      } catch (error) {
-        toast("无法导入：" + error.message);
-      } finally {
-        $("importInput").value = "";
-      }
-    };
+    reader.onload = () => applyBackupJson(String(reader.result || ""));
+    reader.onerror = () => toast("无法读取备份文件");
     reader.readAsText(file, "utf-8");
   }
 
@@ -602,6 +741,11 @@
   $("lessonForm").addEventListener("submit", saveLesson);
   $("closeEditorBtn").addEventListener("click", closeEditor);
   $("editorModal").addEventListener("click", event => { if (event.target === $("editorModal")) closeEditor(); });
+  $("openBatchBtn").addEventListener("click", openBatchImporter);
+  $("closeBatchBtn").addEventListener("click", closeBatchImporter);
+  $("batchModal").addEventListener("click", event => { if (event.target === $("batchModal")) closeBatchImporter(); });
+  $("batchImportBtn").addEventListener("click", importBatchLessons);
+  $("batchFileInput").addEventListener("change", event => loadBatchFile(event.target.files[0]));
   $("startDailyBtn").addEventListener("click", () => {
     const due = data.lessons.find(x => lessonStats(x).due > 0);
     const difficult = data.lessons.find(x => lessonStats(x).difficult > 0);
@@ -648,6 +792,7 @@
     else toast("请到系统设置中选择中文语音");
   });
   $("exportBtn").addEventListener("click", exportBackup);
+  $("importBackupBtn").addEventListener("click", chooseBackup);
   $("importInput").addEventListener("change", event => importBackup(event.target.files[0]));
 
   let orientationTimer = null;
@@ -662,6 +807,7 @@
   });
 
   window.appBack = () => {
+    if (!$("batchModal").classList.contains("hidden")) { closeBatchImporter(); return true; }
     if (!$("editorModal").classList.contains("hidden")) { closeEditor(); return true; }
     if (practice && practice.mode === "full") { exitFullTextMode(); return true; }
     if (practice) { closePractice(); return true; }

@@ -24,21 +24,32 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class MainActivity extends Activity {
     private static final int CREATE_BACKUP = 4101;
     private static final int FILE_CHOOSER = 4102;
     private static final int PICK_AUDIO = 4103;
+    private static final int IMPORT_BACKUP = 4104;
+    private static final int MAX_BACKUP_JSON_BYTES = 20 * 1024 * 1024;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
-    private String pendingFileContent;
+    private String pendingBackupContent;
     private String pendingAudioLessonId;
+    private File pendingBackupArchive;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override
@@ -157,13 +168,48 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void saveTextFile(String filename, String content) {
-            pendingFileContent = content;
+        public void exportBackup(String filename, String content) {
+            pendingBackupContent = content;
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/json");
+            intent.setType("application/zip");
             intent.putExtra(Intent.EXTRA_TITLE, filename);
             runOnUiThread(() -> startActivityForResult(intent, CREATE_BACKUP));
+        }
+
+        @JavascriptInterface
+        public void pickBackup() {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                    "application/zip", "application/json", "application/octet-stream"
+            });
+            runOnUiThread(() -> startActivityForResult(intent, IMPORT_BACKUP));
+        }
+
+        @JavascriptInterface
+        public int applyPendingBackup() {
+            File archive = pendingBackupArchive;
+            pendingBackupArchive = null;
+            if (archive == null || !archive.isFile()) return 0;
+            try {
+                int count = restoreAudioFromArchive(archive);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        "学习数据与 MP3 已恢复", Toast.LENGTH_SHORT).show());
+                return count;
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        "MP3 恢复失败：" + error.getMessage(), Toast.LENGTH_LONG).show());
+                return -1;
+            } finally {
+                archive.delete();
+            }
+        }
+
+        @JavascriptInterface
+        public void cancelPendingBackup() {
+            clearPendingBackupArchive();
         }
 
         @JavascriptInterface
@@ -188,6 +234,145 @@ public class MainActivity extends Activity {
         File directory = new File(getFilesDir(), "lesson_audio");
         if (!directory.exists()) directory.mkdirs();
         return new File(directory, safeId + ".mp3");
+    }
+
+    private int createBackupArchive(OutputStream destination, String json) throws IOException {
+        int audioCount = 0;
+        try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(destination))) {
+            zip.putNextEntry(new ZipEntry("backup.json"));
+            zip.write(json.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+
+            File directory = new File(getFilesDir(), "lesson_audio");
+            File[] audioFiles = directory.listFiles((dir, name) -> name.matches("[a-zA-Z0-9_-]+\\.mp3"));
+            if (audioFiles != null) {
+                byte[] buffer = new byte[32 * 1024];
+                for (File audio : audioFiles) {
+                    zip.putNextEntry(new ZipEntry("audio/" + audio.getName()));
+                    try (InputStream input = new BufferedInputStream(new FileInputStream(audio))) {
+                        int length;
+                        while ((length = input.read(buffer)) > 0) zip.write(buffer, 0, length);
+                    }
+                    zip.closeEntry();
+                    audioCount++;
+                }
+            }
+        }
+        return audioCount;
+    }
+
+    private String readCurrentZipEntry(ZipInputStream input, int maxBytes) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[16 * 1024];
+        int total = 0;
+        int length;
+        while ((length = input.read(buffer)) > 0) {
+            total += length;
+            if (total > maxBytes) throw new IOException("备份数据过大");
+            output.write(buffer, 0, length);
+        }
+        return output.toString(StandardCharsets.UTF_8.name());
+    }
+
+    private String readTextFile(File file, int maxBytes) throws IOException {
+        if (file.length() > maxBytes) throw new IOException("备份数据过大");
+        try (InputStream input = new BufferedInputStream(new FileInputStream(file))) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[16 * 1024];
+            int length;
+            while ((length = input.read(buffer)) > 0) output.write(buffer, 0, length);
+            return output.toString(StandardCharsets.UTF_8.name());
+        }
+    }
+
+    private void prepareBackupImport(Uri uri) {
+        clearPendingBackupArchive();
+        File temporary = new File(getCacheDir(), "pending_backup_" + System.currentTimeMillis() + ".tmp");
+        try (InputStream input = getContentResolver().openInputStream(uri);
+             OutputStream output = new BufferedOutputStream(new FileOutputStream(temporary))) {
+            if (input == null) throw new IOException("无法读取备份");
+            byte[] buffer = new byte[32 * 1024];
+            int length;
+            while ((length = input.read(buffer)) > 0) output.write(buffer, 0, length);
+        } catch (Exception error) {
+            temporary.delete();
+            Toast.makeText(this, "读取备份失败：" + error.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String backupJson = null;
+        int audioCount = 0;
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(new FileInputStream(temporary)))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                String name = entry.getName();
+                if ("backup.json".equals(name)) {
+                    backupJson = readCurrentZipEntry(zip, MAX_BACKUP_JSON_BYTES);
+                } else if (name != null && name.matches("audio/[a-zA-Z0-9_-]+\\.mp3")) {
+                    audioCount++;
+                }
+                zip.closeEntry();
+            }
+        } catch (Exception ignored) {
+            backupJson = null;
+        }
+
+        boolean archiveReady = backupJson != null;
+        if (archiveReady) {
+            pendingBackupArchive = temporary;
+        } else {
+            try {
+                backupJson = readTextFile(temporary, MAX_BACKUP_JSON_BYTES);
+            } catch (Exception error) {
+                temporary.delete();
+                Toast.makeText(this, "备份格式无法识别", Toast.LENGTH_LONG).show();
+                return;
+            }
+            temporary.delete();
+        }
+        notifyBackupReady(backupJson, audioCount, archiveReady);
+    }
+
+    private int restoreAudioFromArchive(File archive) throws IOException {
+        File directory = new File(getFilesDir(), "lesson_audio");
+        if (!directory.exists() && !directory.mkdirs()) throw new IOException("无法创建音频目录");
+        int restored = 0;
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(new FileInputStream(archive)))) {
+            ZipEntry entry;
+            byte[] buffer = new byte[32 * 1024];
+            while ((entry = zip.getNextEntry()) != null) {
+                String name = entry.getName();
+                if (name == null || !name.matches("audio/[a-zA-Z0-9_-]+\\.mp3")) {
+                    zip.closeEntry();
+                    continue;
+                }
+                String filename = name.substring("audio/".length());
+                File destination = new File(directory, filename);
+                File temporary = new File(directory, filename + ".tmp");
+                try (OutputStream output = new BufferedOutputStream(new FileOutputStream(temporary))) {
+                    int length;
+                    while ((length = zip.read(buffer)) > 0) output.write(buffer, 0, length);
+                }
+                if (destination.exists() && !destination.delete()) throw new IOException("无法替换 " + filename);
+                if (!temporary.renameTo(destination)) throw new IOException("无法保存 " + filename);
+                restored++;
+                zip.closeEntry();
+            }
+        }
+        return restored;
+    }
+
+    private void clearPendingBackupArchive() {
+        File archive = pendingBackupArchive;
+        pendingBackupArchive = null;
+        if (archive != null) archive.delete();
+    }
+
+    private void notifyBackupReady(String json, int audioCount, boolean archiveReady) {
+        if (webView == null) return;
+        String script = "window.onNativeBackupReady && window.onNativeBackupReady("
+                + JSONObject.quote(json) + "," + audioCount + "," + archiveReady + ")";
+        webView.evaluateJavascript(script, null);
     }
 
     private String getDisplayName(Uri uri) {
@@ -245,17 +430,25 @@ public class MainActivity extends Activity {
             }
             return;
         }
-        if (requestCode == CREATE_BACKUP && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            try (OutputStream output = getContentResolver().openOutputStream(data.getData())) {
-                if (output != null) {
-                    output.write(pendingFileContent.getBytes(StandardCharsets.UTF_8));
-                    Toast.makeText(this, "备份已保存", Toast.LENGTH_SHORT).show();
-                }
-            } catch (Exception error) {
-                Toast.makeText(this, "保存失败：" + error.getMessage(), Toast.LENGTH_LONG).show();
-            } finally {
-                pendingFileContent = null;
+        if (requestCode == IMPORT_BACKUP) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                prepareBackupImport(data.getData());
             }
+            return;
+        }
+        if (requestCode == CREATE_BACKUP) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingBackupContent != null) {
+                try {
+                    OutputStream output = getContentResolver().openOutputStream(data.getData());
+                    if (output == null) throw new IOException("无法创建备份文件");
+                    int audioCount = createBackupArchive(output, pendingBackupContent);
+                    Toast.makeText(this, "完整备份已保存（含 " + audioCount + " 个 MP3）",
+                            Toast.LENGTH_LONG).show();
+                } catch (Exception error) {
+                    Toast.makeText(this, "保存失败：" + error.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            }
+            pendingBackupContent = null;
         }
     }
 
@@ -276,6 +469,7 @@ public class MainActivity extends Activity {
             webView.removeJavascriptInterface("Native");
             webView.destroy();
         }
+        clearPendingBackupArchive();
         super.onDestroy();
     }
 }

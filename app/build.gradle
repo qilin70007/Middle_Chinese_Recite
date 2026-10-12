@@ -10,8 +10,8 @@ android {
         applicationId "com.qilin.chineserecite"
         minSdk 24
         targetSdk 36
-        versionCode 9
-        versionName "0.6.0"
+        versionCode 10
+        versionName "0.7.0"
     }
 
     signingConfigs {
@@ -50,6 +50,7 @@ def syncWebAssets = tasks.register("syncWebAssets", Sync) {
         include "index.html"
         include "styles.css"
         include "app.js"
+        include "fonts/**"
     }
     into(layout.buildDirectory.dir("generated/assets/www"))
 }

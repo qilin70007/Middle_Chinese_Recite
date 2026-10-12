@@ -1,3 +1,16 @@
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-base.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0020-00FF,U+2000-206F,U+3000-303F,U+FF00-FFEF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-0.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+4E00-55FF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-1.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+5600-5DFF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-2.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+5E00-65FF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-3.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+6600-6DFF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-4.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+6E00-75FF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-5.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+7600-7DFF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-6.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+7E00-85FF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-7.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+8600-8DFF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-8.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+8E00-95FF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-9.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+9600-9DFF}
+@font-face{font-family:"WenKaiEmbedded";src:url("fonts/WenKai-10.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+9E00-9FFF}
+
 :root {
   --ink:#223331; --muted:#6b7772; --paper:#f6f2e8; --card:#fffdf8; --green:#23756a;
   --green-soft:#dcece7; --coral:#e47c58; --coral-soft:#f7e0d5; --gold:#d59a30;
@@ -192,7 +205,8 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
     text-align:center;
     line-height:1.42;
     letter-spacing:0;
-    font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif;
+    font-family:"WenKaiEmbedded","KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif;
+    font-weight:400;
   }
   .practice-view.full-text-mode .full-text-actions{
     position:absolute;
@@ -232,3 +246,9 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 .mode-tabs button{min-width:0;padding:9px 3px;font-size:.92rem;white-space:nowrap}
 .recite-card{font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif}
 .settings-card input:disabled{opacity:.48}
+
+.section-actions{display:flex;align-items:center;gap:2px}
+.batch-sheet textarea{width:100%;min-height:290px;font-family:"Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;font-size:.92rem;line-height:1.65}
+.batch-help{margin:0 0 12px;color:var(--muted);font-size:.88rem}
+.batch-actions{justify-content:flex-end;margin-top:13px}
+@media(max-width:430px){.section-actions .text-btn{padding:7px 5px;font-size:.9rem}.batch-actions>*{flex:1}}
