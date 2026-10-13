@@ -114,8 +114,9 @@ public class MainActivity extends Activity {
                 intent.putExtra(PlaybackService.EXTRA_PAUSE, Math.max(0, Math.min(5000, pauseMs)));
                 intent.putExtra(PlaybackService.EXTRA_REPEAT, Math.max(1, Math.min(5, repeat)));
                 intent.putExtra(PlaybackService.EXTRA_LOOP, loopPlayback);
-                String style = "male".equals(voiceStyle) || "poetry".equals(voiceStyle) ||
-                        "yunjian".equals(voiceStyle) ? voiceStyle : "female";
+                String style = "network".equals(voiceStyle) || "male".equals(voiceStyle) ||
+                        "poetry".equals(voiceStyle) || "yunjian".equals(voiceStyle)
+                        ? voiceStyle : "network";
                 intent.putExtra(PlaybackService.EXTRA_VOICE_STYLE, style);
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
                 runOnUiThread(() -> Toast.makeText(MainActivity.this,

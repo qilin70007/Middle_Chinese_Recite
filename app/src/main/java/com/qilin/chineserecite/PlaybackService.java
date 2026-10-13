@@ -47,7 +47,7 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     private int pauseMs = 800;
     private boolean loopPlayback;
     private float rate = 0.8f;
-    private String voiceStyle = "female";
+    private String voiceStyle = "network";
     private PowerManager.WakeLock wakeLock;
     private MediaPlayer mediaPlayer;
     private boolean ready;
@@ -96,8 +96,10 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
                 repeat = intent.getIntExtra(EXTRA_REPEAT, 1);
                 loopPlayback = intent.getBooleanExtra(EXTRA_LOOP, false);
                 voiceStyle = intent.getStringExtra(EXTRA_VOICE_STYLE);
-                if (!"male".equals(voiceStyle) && !"poetry".equals(voiceStyle) &&
-                        !"yunjian".equals(voiceStyle)) voiceStyle = "female";
+                if (!"network".equals(voiceStyle) && !"male".equals(voiceStyle) &&
+                        !"poetry".equals(voiceStyle) && !"yunjian".equals(voiceStyle)) {
+                    voiceStyle = "network";
+                }
                 lineIndex = 0;
                 repeatIndex = 0;
                 startForeground(NOTIFICATION_ID, buildNotification("正在准备朗读…"));
@@ -130,20 +132,8 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     private void configureVoice() {
         Voice voice = chooseVoice(voiceStyle);
         if (voice != null) tts.setVoice(voice);
-        float effectiveRate = rate;
-        float pitch = 1.06f;
-        if ("male".equals(voiceStyle)) {
-            effectiveRate = rate * 0.96f;
-            pitch = 0.82f;
-        } else if ("yunjian".equals(voiceStyle)) {
-            effectiveRate = rate * 0.80f;
-            pitch = 0.94f;
-        } else if ("poetry".equals(voiceStyle)) {
-            effectiveRate = rate * 0.86f;
-            pitch = 0.94f;
-        }
-        tts.setSpeechRate(Math.max(0.5f, Math.min(1.2f, effectiveRate)));
-        tts.setPitch(pitch);
+        tts.setSpeechRate(Math.max(0.5f, Math.min(1.2f, rate)));
+        tts.setPitch(1.0f);
     }
 
     private Voice chooseVoice(String style) {
@@ -160,19 +150,19 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
         if (chinese.isEmpty()) return null;
         chinese.sort(Comparator.comparingInt((Voice voice) -> voiceScore(voice, style)).reversed()
                 .thenComparing(Voice::getName));
-        boolean maleStyle = "male".equals(style) || "yunjian".equals(style);
-        if (maleStyle && !containsGenderMatch(chinese.get(0), "male") && chinese.size() > 1) {
-            return chinese.get(1);
-        }
         return chinese.get(0);
     }
 
     private int voiceScore(Voice voice, String style) {
         String name = voice.getName().toLowerCase(Locale.ROOT);
         int score = voice.getQuality();
-        if (!voice.isNetworkConnectionRequired()) score += 30;
-        if (name.contains("natural") || name.contains("neural") || name.contains("premium")) score += 500;
-        if ("yunjian".equals(style) && (name.contains("yunjian") || name.contains("云健"))) score += 3000;
+        boolean networkVoice = voice.isNetworkConnectionRequired();
+        boolean namedHighQuality = name.contains("natural") || name.contains("neural") ||
+                name.contains("premium") || name.contains("wavenet") || name.contains("network");
+        if (namedHighQuality) score += 600;
+        if ("network".equals(style) && networkVoice) score += 3000;
+        if ("poetry".equals(style) && networkVoice) score += 1600;
+        if ("yunjian".equals(style) && (name.contains("yunjian") || name.contains("云健"))) score += 3500;
         if (("male".equals(style) || "yunjian".equals(style)) && containsGenderMatch(voice, "male")) score += 1000;
         if (("female".equals(style) || "poetry".equals(style)) && containsGenderMatch(voice, "female")) score += 1000;
         return score;
@@ -187,8 +177,9 @@ public class PlaybackService extends Service implements TextToSpeech.OnInitListe
     }
 
     private int styledPauseMs() {
-        if ("yunjian".equals(voiceStyle)) return 0;
-        return "poetry".equals(voiceStyle) ? Math.max(1200, pauseMs) : pauseMs;
+        if ("network".equals(voiceStyle) || "yunjian".equals(voiceStyle) ||
+                "poetry".equals(voiceStyle)) return 0;
+        return pauseMs;
     }
 
     private void playAudioFile(String path, String title) {

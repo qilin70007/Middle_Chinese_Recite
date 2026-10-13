@@ -74,13 +74,14 @@
     <section class="settings-card">
       <label>朗读音色
         <select id="speechVoice">
-          <option value="female" selected>自然女声</option>
+          <option value="network" selected>高品质网络音色（免费推荐）</option>
+          <option value="female">自然女声</option>
           <option value="male">沉稳男声</option>
-          <option value="yunjian">云健男声（古文）</option>
+          <option value="yunjian">云健男声（如设备支持）</option>
           <option value="poetry">古诗朗诵</option>
         </select>
       </label>
-      <p class="setting-hint" id="voiceHint">优先选择手机中较自然的中文女声，适合课文和文言文跟读。</p>
+      <p class="setting-hint" id="voiceHint">优先使用手机朗读引擎提供的免费高品质网络中文音色；没有时自动回退到本地中文音色。</p>
       <button class="secondary voice-preview" id="previewVoiceBtn">▶ 试听当前音色</button>
       <label>朗读语速 <output id="rateOutput">0.8×</output>
         <input id="speechRate" type="range" min="0.5" max="1.2" step="0.1" value="0.8">

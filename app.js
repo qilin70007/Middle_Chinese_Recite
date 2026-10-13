@@ -43,7 +43,7 @@
     return {
       version: 1,
       lessons: sampleLessons(),
-      settings: { rate: 0.8, pause: 1, repeat: 2, voice: "female" }
+      settings: { rate: 0.8, pause: 1, repeat: 2, voice: "network" }
     };
   }
 
@@ -51,7 +51,7 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(STORE_KEY));
       if (parsed && Array.isArray(parsed.lessons)) {
-        parsed.settings = Object.assign({ rate: 0.8, pause: 1, repeat: 2, voice: "female" }, parsed.settings || {});
+        parsed.settings = Object.assign({ rate: 0.8, pause: 1, repeat: 2, voice: "network" }, parsed.settings || {});
         parsed.lessons.forEach(lesson => {
           lesson.reviews = lesson.reviews || {};
           lesson.createdAt = lesson.createdAt || Date.now();
@@ -508,18 +508,19 @@
   }
 
   function speechSettings() {
-    return data.settings || { rate: 0.8, pause: 1, repeat: 2, voice: "female" };
+    return data.settings || { rate: 0.8, pause: 1, repeat: 2, voice: "network" };
   }
 
   const voiceDescriptions = {
+    network: "优先使用手机朗读引擎提供的免费高品质网络中文音色；没有时自动回退到本地中文音色。",
     female: "优先选择手机中较自然的中文女声，适合课文和文言文跟读。",
-    male: "音调更沉稳，适合文言文、故事和整篇聆听。",
-    yunjian: "优先使用云健/Yunjian男声；语速降低20%，只按原文标点自然断句，不另加停顿。",
-    poetry: "语速更舒缓、句间停顿更长，适合古诗和韵文背诵。"
+    male: "优先选择设备中真实的中文男声；找不到时使用最高品质中文音色，不再强行压低音调。",
+    yunjian: "优先使用设备中的云健/Yunjian男声；找不到时回退到高品质中文音色。整篇只按原文标点断句。",
+    poetry: "优先选择高品质中文音色，整首一次朗读，只按原文标点自然断句。"
   };
 
   function normalizedVoice(value) {
-    return ["female", "male", "yunjian", "poetry"].includes(value) ? value : "female";
+    return ["network", "female", "male", "yunjian", "poetry"].includes(value) ? value : "network";
   }
 
   function pickBrowserVoice(style) {
@@ -527,11 +528,27 @@
     const voices = speechSynthesis.getVoices().filter(voice =>
       /^(zh|cmn)/i.test(voice.lang || "") || /chinese|中文|普通话/i.test(voice.name || ""));
     if (!voices.length) return null;
+    const highQuality = /natural|neural|premium|wavenet|network/i;
+    if (style === "network") {
+      return voices.find(voice => voice.localService === false && highQuality.test(voice.name || ""))
+        || voices.find(voice => voice.localService === false)
+        || voices.find(voice => highQuality.test(voice.name || ""))
+        || voices[0];
+    }
     const maleStyle = style === "male" || style === "yunjian";
     const tokens = maleStyle
       ? (style === "yunjian" ? /yunjian|云健/i : /male|man|boy|yunxi|yunyang|yunjian|kangkang|gang|liang/i)
       : /female|woman|girl|xiaoxiao|xiaoyi|tingting|yaoyao|huihui|meimei|zhiyu/i;
-    return voices.find(voice => tokens.test(voice.name || "")) || voices[maleStyle && voices.length > 1 ? 1 : 0];
+    return voices.find(voice => tokens.test(voice.name || ""))
+      || voices.find(voice => highQuality.test(voice.name || ""))
+      || voices[0];
+  }
+
+  function naturalSpeechText(lines) {
+    return lines.map((line, index) => {
+      if (/[。！？!?；;，,、：:]$/.test(line)) return line;
+      return line + (index === lines.length - 1 ? "。" : "，");
+    }).join("");
   }
 
   function startSpeech(lines, repeatOverride, loopPlayback = false) {
@@ -539,23 +556,23 @@
     if (!clean.length) return toast("没有可朗读的内容");
     const settings = speechSettings();
     const voice = normalizedVoice(settings.voice);
+    const punctuationOnly = ["network", "yunjian", "poetry"].includes(voice);
+    const speechLines = punctuationOnly ? [naturalSpeechText(clean)] : clean;
     if (window.Native && Native.startPlayback) {
-      const naturalPunctuation = voice === "yunjian";
-      const nativeLines = naturalPunctuation ? [clean.join("\n")] : clean;
-      Native.startPlayback(JSON.stringify(nativeLines), Number(settings.rate),
-        naturalPunctuation ? 0 : Math.round(Number(settings.pause) * 1000),
-        naturalPunctuation ? 1 : (repeatOverride || Number(settings.repeat)), voice, Boolean(loopPlayback));
+      Native.startPlayback(JSON.stringify(speechLines), Number(settings.rate),
+        punctuationOnly ? 0 : Math.round(Number(settings.pause) * 1000),
+        punctuationOnly ? 1 : (repeatOverride || Number(settings.repeat)), voice, Boolean(loopPlayback));
       return;
     }
     if ("speechSynthesis" in window) {
       speechSynthesis.cancel();
       const selectedVoice = pickBrowserVoice(voice);
-      clean.forEach(line => {
+      speechLines.forEach(line => {
         const utterance = new SpeechSynthesisUtterance(line);
         utterance.lang = "zh-CN";
         utterance.voice = selectedVoice;
-        utterance.rate = Number(settings.rate) * (voice === "yunjian" ? 0.8 : voice === "poetry" ? 0.86 : voice === "male" ? 0.96 : 1);
-        utterance.pitch = voice === "male" ? 0.82 : voice === "yunjian" ? 0.94 : voice === "poetry" ? 0.94 : 1.06;
+        utterance.rate = Number(settings.rate);
+        utterance.pitch = 1;
         speechSynthesis.speak(utterance);
       });
       toast("已开始朗读");
@@ -579,7 +596,7 @@
       } catch (_) {}
     }
     const body = segmentsOf(lesson);
-    if (!withExplanation) return startSpeech(body, undefined, true);
+    if (!withExplanation) return startSpeech(body, 1, true);
     const lines = [];
     if (lesson.notes) lines.push("先听讲解。", ...splitSegments(lesson.notes));
     lines.push("下面开始背诵正文。");
@@ -606,7 +623,7 @@
     data.settings.repeat = Number($("speechRepeat").value);
     data.settings.voice = normalizedVoice($("speechVoice").value);
     $("rateOutput").textContent = data.settings.rate.toFixed(1) + "×";
-    const punctuationOnly = data.settings.voice === "yunjian";
+    const punctuationOnly = ["network", "yunjian", "poetry"].includes(data.settings.voice);
     $("speechPause").disabled = punctuationOnly;
     $("pauseOutput").textContent = punctuationOnly ? "按标点" : data.settings.pause.toFixed(1) + " 秒";
     $("voiceHint").textContent = voiceDescriptions[data.settings.voice];
@@ -625,6 +642,7 @@
   function previewVoice() {
     const voice = normalizedVoice($("speechVoice").value);
     const samples = {
+      network: "明月松间照，清泉石上流。竹喧归浣女，莲动下渔舟。",
       female: "让我们开始今天的背诵。先听清楚，再跟着读一遍。",
       male: "让我们开始今天的背诵。放慢一点，读准每一个字。",
       yunjian: "山不在高，有仙则名。水不在深，有龙则灵。",
@@ -658,7 +676,7 @@
   function normalizeRestoredData(parsed) {
     const restored = parsed && (parsed.data || parsed);
     if (!restored || !Array.isArray(restored.lessons)) throw new Error("格式不正确");
-    restored.settings = Object.assign({rate:.8,pause:1,repeat:2,voice:"female"}, restored.settings || {});
+    restored.settings = Object.assign({rate:.8,pause:1,repeat:2,voice:"network"}, restored.settings || {});
     restored.lessons.forEach(lesson => {
       lesson.reviews = lesson.reviews || {};
       lesson.createdAt = lesson.createdAt || Date.now();
