@@ -353,13 +353,31 @@
 
   let fullTextFitTimer = null;
 
+  function fullTextLineUnits(value) {
+    return Array.from(String(value || "")).reduce((total, char) => {
+      if (/\s/.test(char)) return total + 0.35;
+      return total + (/^[\u0000-\u00ff]$/.test(char) ? 0.58 : 1);
+    }, 0);
+  }
+
+  function fullTextTargetColumns(value) {
+    const lines = String(value || "").replace(/\r/g, "").split(/\n+/)
+      .map(line => line.trim()).filter(Boolean);
+    const widest = Math.max(0, ...lines.map(fullTextLineUnits));
+    // 至少为14个汉字预留一整行；短诗行还会把标点计入，避免行尾被挤到下一行。
+    if (lines.length > 1 || widest <= 20) return Math.max(14.8, Math.min(20.8, widest + 0.6));
+    return 14.8;
+  }
+
   function fitFullText() {
     if (!practice || practice.mode !== "full" ||
         !window.matchMedia("(orientation: landscape)").matches) return;
     const text = $("segmentText");
     if (!text || text.clientWidth < 40 || text.clientHeight < 40) return;
-    let low = 16;
-    let high = 84;
+    const targetColumns = fullTextTargetColumns(text.textContent);
+    const widthLimitedSize = Math.max(15.5, (text.clientWidth - 12) / targetColumns);
+    let low = 15.5;
+    let high = Math.min(76, widthLimitedSize);
     let best = low;
     for (let step = 0; step < 10; step++) {
       const size = (low + high) / 2;
@@ -373,7 +391,7 @@
         high = size;
       }
     }
-    text.style.fontSize = Math.max(16, best - 0.5).toFixed(1) + "px";
+    text.style.fontSize = Math.max(15.5, best - 1).toFixed(1) + "px";
   }
 
   function scheduleFullTextFit() {
