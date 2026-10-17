@@ -252,3 +252,19 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 .batch-help{margin:0 0 12px;color:var(--muted);font-size:.88rem}
 .batch-actions{justify-content:flex-end;margin-top:13px}
 @media(max-width:430px){.section-actions .text-btn{padding:7px 5px;font-size:.9rem}.batch-actions>*{flex:1}}
+
+.sort-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:10px 12px;border:1px dashed #b9cec8;border-radius:14px;background:rgba(247,255,252,.8);color:var(--muted);font-size:.82rem}
+#toggleSortBtn.active{color:var(--coral)}
+.lesson-title-block{min-width:0;flex:1}
+.lesson-card-tools{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.card-edit-btn{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--green);font-size:.78rem;font-weight:800;padding:6px 9px}
+.lesson-sort-row{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);font-size:.8rem}
+.lesson-sort-row strong{color:var(--ink)}
+.lesson-sort-buttons{display:flex;gap:7px}
+.lesson-sort-buttons button{border:1px solid #b9cec8;border-radius:10px;background:#f7fffc;color:var(--green);font-weight:800;padding:7px 10px}
+.lesson-sort-buttons button:disabled{opacity:.35}
+@media(max-width:430px){
+  .sort-toolbar{align-items:flex-start;flex-direction:column}
+  .sort-toolbar .secondary{width:100%}
+  .lesson-card-tools{align-items:flex-end;flex-direction:column;gap:5px}
+}

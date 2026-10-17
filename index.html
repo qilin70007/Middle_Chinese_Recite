@@ -43,6 +43,7 @@
       <div><p class="eyebrow">我的篇目</p><h2>背诵书架</h2></div>
       <div class="section-actions">
         <button class="text-btn" id="openBatchBtn">批量导入</button>
+        <button class="text-btn" id="toggleSortBtn" aria-pressed="false">排序</button>
         <button class="text-btn" data-action="open-editor">新增</button>
       </div>
     </section>
@@ -52,6 +53,10 @@
       <button class="chip" data-library-filter="文言文">文言文</button>
       <button class="chip" data-library-filter="现代文">现代文</button>
       <button class="chip" data-library-filter="difficult">重难点</button>
+    </div>
+    <div id="sortToolbar" class="sort-toolbar hidden">
+      <span>使用每篇右下角的按钮调整顺序</span>
+      <button class="secondary compact" id="sortByBatchBtn">按导入编号排序</button>
     </div>
     <section id="lessonList" class="lesson-list"></section>
   </main>
@@ -200,7 +205,8 @@
     <div class="modal-sheet batch-sheet">
       <div class="modal-head"><h2>批量导入背诵内容</h2><button id="closeBatchBtn" class="icon-btn">×</button></div>
       <p class="batch-help">可粘贴多篇内容，或选择 TXT / JSON 文件。每篇之间用一行 <strong>===</strong> 分隔。</p>
-      <textarea id="batchText" rows="15" spellcheck="false" placeholder="标题：七步诗
+      <textarea id="batchText" rows="15" spellcheck="false" placeholder="排序：1
+标题：七步诗
 类型：古诗
 作者：[三国] 曹植
 正文：
@@ -220,7 +226,7 @@
         <label class="secondary file-label">选择 TXT / JSON<input id="batchFileInput" type="file" accept=".txt,.json,text/plain,application/json"></label>
         <button class="primary" id="batchImportBtn">导入到书架</button>
       </div>
-      <p class="form-tip">类型可填写：古诗、文言文、现代文、其他。完全相同的篇目会自动跳过。</p>
+      <p class="form-tip">按粘贴顺序导入；也可为每篇填写“排序：1、2、3…”。标题以“1.”“2、”开头时也能按编号排序。完全相同的篇目会自动跳过。</p>
     </div>
   </div>
 

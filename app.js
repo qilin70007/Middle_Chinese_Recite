@@ -67,6 +67,7 @@
   let data = loadData();
   let currentView = "home";
   let libraryFilter = "all";
+  let sortMode = false;
   let practice = null;
   let toastTimer = null;
 
@@ -133,22 +134,82 @@
     window.scrollTo(0, 0);
   }
 
-  function lessonCard(lesson, scope = "all") {
+  function lessonCard(lesson, scope = "all", orderIndex = -1) {
     const stats = lessonStats(lesson);
     const percent = stats.total ? Math.round(stats.mastered / stats.total * 100) : 0;
     const subtitle = [lesson.author, `${stats.total} 句`, stats.difficult ? `${stats.difficult} 个重难点` : ""]
       .filter(Boolean).join(" · ");
+    const sorting = sortMode && scope === "all" && orderIndex >= 0;
+    const bottom = sorting
+      ? `<div class="lesson-sort-row">
+          <strong>书架第 ${orderIndex + 1} 位</strong>
+          <div class="lesson-sort-buttons">
+            <button data-move-lesson="${esc(lesson.id)}" data-move-direction="-1" ${orderIndex === 0 ? "disabled" : ""}>↑ 上移</button>
+            <button data-move-lesson="${esc(lesson.id)}" data-move-direction="1" ${orderIndex === data.lessons.length - 1 ? "disabled" : ""}>↓ 下移</button>
+          </div>
+        </div>`
+      : `<div class="lesson-bottom">
+          <span>${scope === "due" ? `今日到期 ${stats.due} 句` : `已掌握 ${percent}%`}</span>
+          <button data-open-lesson="${esc(lesson.id)}" data-scope="${scope}">开始练习</button>
+        </div>`;
     return `<article class="lesson-card">
       <div class="lesson-top">
-        <div><h3>${esc(lesson.title)}</h3><p>${esc(subtitle)}</p></div>
-        <span class="type-badge">${esc(lesson.type)}</span>
+        <div class="lesson-title-block"><h3>${esc(lesson.title)}</h3><p>${esc(subtitle)}</p></div>
+        <div class="lesson-card-tools">
+          <span class="type-badge">${esc(lesson.type)}</span>
+          <button class="card-edit-btn" data-edit-lesson="${esc(lesson.id)}" aria-label="编辑${esc(lesson.title)}">编辑</button>
+        </div>
       </div>
       <div class="lesson-progress"><span style="width:${percent}%"></span></div>
-      <div class="lesson-bottom">
-        <span>${scope === "due" ? `今日到期 ${stats.due} 句` : `已掌握 ${percent}%`}</span>
-        <button data-open-lesson="${esc(lesson.id)}" data-scope="${scope}">开始练习</button>
-      </div>
+      ${bottom}
     </article>`;
+  }
+
+  function setSortMode(enabled) {
+    sortMode = Boolean(enabled);
+    if (sortMode) {
+      libraryFilter = "all";
+      document.querySelectorAll("[data-library-filter]").forEach(button =>
+        button.classList.toggle("active", button.dataset.libraryFilter === "all"));
+    }
+    $("toggleSortBtn").textContent = sortMode ? "完成排序" : "排序";
+    $("toggleSortBtn").classList.toggle("active", sortMode);
+    $("toggleSortBtn").setAttribute("aria-pressed", String(sortMode));
+    $("sortToolbar").classList.toggle("hidden", !sortMode);
+    renderHome();
+  }
+
+  function moveLesson(lessonId, direction) {
+    const index = data.lessons.findIndex(lesson => lesson.id === lessonId);
+    const target = index + Number(direction);
+    if (index < 0 || target < 0 || target >= data.lessons.length) return;
+    [data.lessons[index], data.lessons[target]] = [data.lessons[target], data.lessons[index]];
+    saveData();
+    renderHome();
+  }
+
+  function lessonBatchOrder(lesson) {
+    const stored = Number(lesson.batchOrder);
+    if (Number.isFinite(stored)) return stored;
+    const match = String(lesson.title || "").match(/^\s*(?:第\s*)?(\d+(?:\.\d+)?)\s*(?:[篇首课]|[.．、:：\-_])?/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function sortLessonsByBatchOrder() {
+    const indexed = data.lessons.map((lesson, index) => ({ lesson, index, order: lessonBatchOrder(lesson) }));
+    const numbered = indexed.filter(item => Number.isFinite(item.order)).length;
+    if (numbered < 2) return toast("至少需要两篇带“排序”或标题编号的内容");
+    indexed.sort((a, b) => {
+      const aNumbered = Number.isFinite(a.order);
+      const bNumbered = Number.isFinite(b.order);
+      if (aNumbered && bNumbered) return a.order - b.order || a.index - b.index;
+      if (aNumbered !== bNumbered) return aNumbered ? -1 : 1;
+      return a.index - b.index;
+    });
+    data.lessons = indexed.map(item => item.lesson);
+    saveData();
+    renderHome();
+    toast(`已按编号排列 ${numbered} 篇内容`);
   }
 
   function renderHome() {
@@ -166,7 +227,9 @@
     let lessons = [...data.lessons];
     if (libraryFilter === "difficult") lessons = lessons.filter(x => lessonStats(x).difficult > 0);
     else if (libraryFilter !== "all") lessons = lessons.filter(x => x.type === libraryFilter);
-    $("lessonList").innerHTML = lessons.length ? lessons.map(x => lessonCard(x, libraryFilter === "difficult" ? "difficult" : "all")).join("")
+    const scope = libraryFilter === "difficult" ? "difficult" : "all";
+    $("lessonList").innerHTML = lessons.length
+      ? lessons.map(x => lessonCard(x, scope, sortMode ? data.lessons.indexOf(x) : -1)).join("")
       : '<div class="empty">这里还没有篇目。点击右上角“＋”，把学校要求背诵的内容加进来。</div>';
   }
 
@@ -216,7 +279,10 @@
     if (!title || !splitSegments(content).length) return null;
     let type = String(item.type || item["类型"] || "其他").trim();
     if (!["古诗","文言文","现代文","其他"].includes(type)) type = "其他";
-    return {
+    const rawOrder = item.batchOrder ?? item.order ?? item.sortOrder ?? item["排序"] ?? item["序号"];
+    const orderText = String(rawOrder ?? "").trim();
+    const parsedOrder = orderText ? Number(orderText.replace(/[^0-9.+-]/g, "")) : NaN;
+    const lesson = {
       id: uid(),
       title,
       type,
@@ -226,6 +292,12 @@
       createdAt: Date.now(),
       reviews: {}
     };
+    if (Number.isFinite(parsedOrder)) lesson.batchOrder = parsedOrder;
+    else {
+      const titleOrder = lessonBatchOrder(lesson);
+      if (Number.isFinite(titleOrder)) lesson.batchOrder = titleOrder;
+    }
+    return lesson;
   }
 
   function parseBatchText(rawText) {
@@ -238,11 +310,14 @@
       return list.map(normalizeImportedLesson).filter(Boolean);
     }
     return raw.split(/\n\s*={3,}\s*\n/g).map(block => {
-      const fields = { title:"", type:"其他", author:"", content:[], notes:[] };
+      const fields = { title:"", type:"其他", author:"", order:"", content:[], notes:[] };
       let section = "";
       block.split("\n").forEach(originalLine => {
         const line = originalLine.trimEnd();
         let match;
+        if ((match = line.match(/^\s*(?:排序|序号)\s*[:：]\s*(.*)$/))) {
+          fields.order = match[1].trim(); section = ""; return;
+        }
         if ((match = line.match(/^\s*(?:标题|篇目)\s*[:：]\s*(.*)$/))) {
           fields.title = match[1].trim(); section = ""; return;
         }
@@ -261,7 +336,7 @@
         if (section && line.trim()) fields[section].push(line.trim());
       });
       return normalizeImportedLesson({
-        title:fields.title, type:fields.type, author:fields.author,
+        title:fields.title, type:fields.type, author:fields.author, order:fields.order,
         content:fields.content.join("\n"), notes:fields.notes.join("\n")
       });
     }).filter(Boolean);
@@ -278,7 +353,14 @@
     if (!confirm(`识别到 ${lessons.length} 篇内容，导入到书架吗？`)) return;
     const existing = new Set(data.lessons.map(item => item.title.trim() + "\n" + item.content.trim()));
     const accepted = lessons.filter(item => !existing.has(item.title.trim() + "\n" + item.content.trim()));
-    accepted.reverse().forEach(item => data.lessons.unshift(item));
+    accepted.sort((a, b) => {
+      const aOrder = lessonBatchOrder(a);
+      const bOrder = lessonBatchOrder(b);
+      if (Number.isFinite(aOrder) && Number.isFinite(bOrder)) return aOrder - bOrder;
+      if (Number.isFinite(aOrder) !== Number.isFinite(bOrder)) return Number.isFinite(aOrder) ? -1 : 1;
+      return 0;
+    });
+    data.lessons.push(...accepted);
     saveData();
     closeBatchImporter();
     $("batchText").value = "";
@@ -318,6 +400,8 @@
     saveData();
     closeEditor();
     renderHome();
+    if (currentView === "review") renderReview();
+    if (practice && practice.lesson.id === lesson.id) renderPractice();
     toast(existing ? "篇目已更新" : "篇目已加入书架");
   }
 
@@ -765,10 +849,18 @@
     if (nav) return showView(nav.dataset.nav);
     const editor = event.target.closest('[data-action="open-editor"]');
     if (editor) return openEditor();
+    const lessonEditor = event.target.closest("[data-edit-lesson]");
+    if (lessonEditor) {
+      const lesson = data.lessons.find(item => item.id === lessonEditor.dataset.editLesson);
+      return lesson && openEditor(lesson);
+    }
+    const moveButton = event.target.closest("[data-move-lesson]");
+    if (moveButton) return moveLesson(moveButton.dataset.moveLesson, moveButton.dataset.moveDirection);
     const lessonButton = event.target.closest("[data-open-lesson]");
     if (lessonButton) return openPractice(lessonButton.dataset.openLesson, lessonButton.dataset.scope || "all");
     const filter = event.target.closest("[data-library-filter]");
     if (filter) {
+      if (sortMode) setSortMode(false);
       libraryFilter = filter.dataset.libraryFilter;
       document.querySelectorAll("[data-library-filter]").forEach(x => x.classList.toggle("active", x === filter));
       return renderHome();
@@ -789,6 +881,8 @@
   $("closeEditorBtn").addEventListener("click", closeEditor);
   $("editorModal").addEventListener("click", event => { if (event.target === $("editorModal")) closeEditor(); });
   $("openBatchBtn").addEventListener("click", openBatchImporter);
+  $("toggleSortBtn").addEventListener("click", () => setSortMode(!sortMode));
+  $("sortByBatchBtn").addEventListener("click", sortLessonsByBatchOrder);
   $("closeBatchBtn").addEventListener("click", closeBatchImporter);
   $("batchModal").addEventListener("click", event => { if (event.target === $("batchModal")) closeBatchImporter(); });
   $("batchImportBtn").addEventListener("click", importBatchLessons);
