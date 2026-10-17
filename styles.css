@@ -190,7 +190,7 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
   .practice-view.full-text-mode .segment-text,
   .practice-view.poetry-text.full-text-mode .segment-text{
     position:absolute;
-    inset:10px 16px 56px;
+    inset:10px max(34px,env(safe-area-inset-right)) 56px max(28px,env(safe-area-inset-left));
     width:auto;
     height:auto;
     margin:0;

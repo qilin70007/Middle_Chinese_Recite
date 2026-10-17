@@ -352,6 +352,7 @@
   }
 
   let fullTextFitTimer = null;
+  let fullTextMeasureCanvas = null;
 
   function fullTextLineUnits(value) {
     return Array.from(String(value || "")).reduce((total, char) => {
@@ -360,13 +361,23 @@
     }, 0);
   }
 
-  function fullTextTargetColumns(value) {
+  function fullTextMeasureSamples(value) {
     const lines = String(value || "").replace(/\r/g, "").split(/\n+/)
       .map(line => line.trim()).filter(Boolean);
-    const widest = Math.max(0, ...lines.map(fullTextLineUnits));
-    // 至少为14个汉字预留一整行；短诗行还会把标点计入，避免行尾被挤到下一行。
-    if (lines.length > 1 || widest <= 20) return Math.max(14.8, Math.min(20.8, widest + 0.6));
-    return 14.8;
+    const shortLines = lines.filter(line => fullTextLineUnits(line) <= 22);
+    // 14个正文汉字加两处标点通常占16个全角字符；固定样本用于保证最小单行容量。
+    return ["古人学问无遗力，少壮工夫老始成。", "永".repeat(16), ...shortLines];
+  }
+
+  function fullTextWidthFits(text, size) {
+    if (!fullTextMeasureCanvas) fullTextMeasureCanvas = document.createElement("canvas");
+    const context = fullTextMeasureCanvas.getContext("2d");
+    if (!context) return true;
+    const style = getComputedStyle(text);
+    context.font = `${style.fontStyle} ${style.fontWeight} ${size}px ${style.fontFamily}`;
+    const availableWidth = Math.max(1, text.clientWidth - 24);
+    return fullTextMeasureSamples(text.textContent)
+      .every(line => context.measureText(line).width <= availableWidth);
   }
 
   function fitFullText() {
@@ -374,15 +385,14 @@
         !window.matchMedia("(orientation: landscape)").matches) return;
     const text = $("segmentText");
     if (!text || text.clientWidth < 40 || text.clientHeight < 40) return;
-    const targetColumns = fullTextTargetColumns(text.textContent);
-    const widthLimitedSize = Math.max(15.5, (text.clientWidth - 12) / targetColumns);
     let low = 15.5;
-    let high = Math.min(76, widthLimitedSize);
+    let high = 72;
     let best = low;
-    for (let step = 0; step < 10; step++) {
+    for (let step = 0; step < 11; step++) {
       const size = (low + high) / 2;
       text.style.fontSize = size.toFixed(2) + "px";
-      const fits = text.scrollWidth <= text.clientWidth + 1 &&
+      const fits = fullTextWidthFits(text, size) &&
+        text.scrollWidth <= text.clientWidth + 1 &&
         text.scrollHeight <= text.clientHeight + 1;
       if (fits) {
         best = size;
@@ -391,7 +401,8 @@
         high = size;
       }
     }
-    text.style.fontSize = Math.max(15.5, best - 1).toFixed(1) + "px";
+    // 留出3%的楷体渲染及系统导航栏误差，避免真机上最后一个字再次换行。
+    text.style.fontSize = Math.max(15.5, best * 0.97).toFixed(1) + "px";
   }
 
   function scheduleFullTextFit() {
