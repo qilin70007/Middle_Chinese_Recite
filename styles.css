@@ -268,3 +268,21 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
   .sort-toolbar .secondary{width:100%}
   .lesson-card-tools{align-items:flex-end;flex-direction:column;gap:5px}
 }
+
+@media(orientation:landscape){
+  .practice-view.poetry-text.full-text-mode .segment-text{
+    flex-direction:column;
+    flex-wrap:nowrap;
+  }
+  .practice-view.poetry-text.full-text-mode .full-text-line{
+    display:block;
+    flex:0 0 auto;
+    align-self:center;
+    width:max-content;
+    max-width:none;
+    white-space:nowrap;
+    word-break:keep-all;
+    overflow-wrap:normal;
+    line-height:1.42;
+  }
+}

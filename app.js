@@ -436,32 +436,31 @@
   }
 
   let fullTextFitTimer = null;
-  let fullTextMeasureCanvas = null;
 
-  function fullTextLineUnits(value) {
-    return Array.from(String(value || "")).reduce((total, char) => {
-      if (/\s/.test(char)) return total + 0.35;
-      return total + (/^[\u0000-\u00ff]$/.test(char) ? 0.58 : 1);
-    }, 0);
-  }
-
-  function fullTextMeasureSamples(value) {
-    const lines = String(value || "").replace(/\r/g, "").split(/\n+/)
+  function poetryDisplayLines(value) {
+    const sourceLines = String(value || "").replace(/\r/g, "").split(/\n+/)
       .map(line => line.trim()).filter(Boolean);
-    const shortLines = lines.filter(line => fullTextLineUnits(line) <= 22);
-    // 14个正文汉字加两处标点通常占16个全角字符；固定样本用于保证最小单行容量。
-    return ["古人学问无遗力，少壮工夫老始成。", "永".repeat(16), ...shortLines];
+    if (sourceLines.length > 1) return sourceLines;
+    return sourceLines.flatMap(line =>
+      line.match(/[^。！？!?；;]+[。！？!?；;]?/g) || [line]);
   }
 
-  function fullTextWidthFits(text, size) {
-    if (!fullTextMeasureCanvas) fullTextMeasureCanvas = document.createElement("canvas");
-    const context = fullTextMeasureCanvas.getContext("2d");
-    if (!context) return true;
-    const style = getComputedStyle(text);
-    context.font = `${style.fontStyle} ${style.fontWeight} ${size}px ${style.fontFamily}`;
-    const availableWidth = Math.max(1, text.clientWidth - 24);
-    return fullTextMeasureSamples(text.textContent)
-      .every(line => context.measureText(line).width <= availableWidth);
+  function renderFullText(lesson) {
+    const text = $("segmentText");
+    if (lesson.type !== "古诗") {
+      text.textContent = lesson.content;
+      return;
+    }
+    const lines = poetryDisplayLines(lesson.content);
+    text.innerHTML = lines.map(line =>
+      `<span class="full-text-line">${esc(line)}</span>`).join("");
+  }
+
+  function fullTextRenderedLinesFit(text) {
+    const lines = Array.from(text.querySelectorAll(".full-text-line"));
+    if (!lines.length) return true;
+    const availableWidth = Math.max(1, text.clientWidth - 12);
+    return lines.every(line => line.scrollWidth <= availableWidth);
   }
 
   function fitFullText() {
@@ -469,14 +468,13 @@
         !window.matchMedia("(orientation: landscape)").matches) return;
     const text = $("segmentText");
     if (!text || text.clientWidth < 40 || text.clientHeight < 40) return;
-    let low = 15.5;
+    let low = 12;
     let high = 72;
     let best = low;
-    for (let step = 0; step < 11; step++) {
+    for (let step = 0; step < 12; step++) {
       const size = (low + high) / 2;
       text.style.fontSize = size.toFixed(2) + "px";
-      const fits = fullTextWidthFits(text, size) &&
-        text.scrollWidth <= text.clientWidth + 1 &&
+      const fits = fullTextRenderedLinesFit(text) &&
         text.scrollHeight <= text.clientHeight + 1;
       if (fits) {
         best = size;
@@ -485,8 +483,8 @@
         high = size;
       }
     }
-    // 留出3%的楷体渲染及系统导航栏误差，避免真机上最后一个字再次换行。
-    text.style.fontSize = Math.max(15.5, best * 0.97).toFixed(1) + "px";
+    // 真机渲染再保留4%余量；古诗行本身禁止换行，因此文字和标点始终保持在同一行。
+    text.style.fontSize = Math.max(12, best * 0.96).toFixed(1) + "px";
   }
 
   function scheduleFullTextFit() {
@@ -520,7 +518,7 @@
     $("modeTabs").querySelectorAll("button").forEach(button =>
       button.classList.toggle("active", button.dataset.mode === mode));
     $("revealBtn").classList.toggle("hidden", fullTextMode || mode !== "recite" || practice.revealed);
-    if (fullTextMode) $("segmentText").textContent = lesson.content;
+    if (fullTextMode) renderFullText(lesson);
     else if (mode === "read" || practice.revealed) $("segmentText").textContent = segment;
     else if (mode === "cloze") $("segmentText").textContent = cloze(segment);
     else $("segmentText").textContent = "＿＿＿＿＿＿＿＿";
