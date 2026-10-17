@@ -100,6 +100,8 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 .audio-import{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line)}
 .audio-import p{margin:0 0 9px;color:var(--ink);font-size:.9rem;line-height:1.5}
 .audio-import small{display:block;margin-top:9px;color:var(--muted);line-height:1.45}
+.editor-audio-import{margin:15px 0;padding:13px 14px;border:1px solid var(--line);border-radius:15px;background:#fff}
+.editor-audio-import>strong{display:block;margin-bottom:6px;color:var(--green)}
 .secondary.compact{padding:8px 12px;font-size:.88rem}
 
 @media(orientation:landscape){

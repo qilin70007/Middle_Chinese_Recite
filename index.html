@@ -196,6 +196,15 @@
         </div>
         <label>背诵正文<textarea id="lessonContent" required rows="9" placeholder="按课本原文录入。软件会按标点和换行自动分句。"></textarea></label>
         <label>译文、讲解或记忆提示（可选）<textarea id="lessonNotes" rows="4" placeholder="文言文可先写白话解释；现代文可写段落线索。"></textarea></label>
+        <div id="editorAudioImport" class="audio-import editor-audio-import hidden">
+          <strong>朗读 MP3</strong>
+          <p id="editorAudioStatus">未导入 MP3，整篇播放时使用系统语音。</p>
+          <div class="button-row">
+            <button type="button" class="secondary compact" id="editorImportAudioBtn">导入 MP3</button>
+            <button type="button" class="danger-text hidden" id="editorRemoveAudioBtn">移除 MP3</button>
+          </div>
+          <small>导入后，“播放全文”会优先使用此 MP3 并持续循环；完整备份会包含该音频。</small>
+        </div>
         <p class="form-tip">保存后可逐句练、挖空练，也能整篇息屏播放。</p>
         <button type="submit" class="primary full">保存篇目</button>
       </form>

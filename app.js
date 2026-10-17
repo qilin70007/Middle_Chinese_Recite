@@ -270,6 +270,7 @@
       $("lessonContent").value = lesson.content;
       $("lessonNotes").value = lesson.notes || "";
     }
+    renderEditorAudioStatus(lesson);
     $("editorModal").classList.remove("hidden");
     setTimeout(() => $("lessonTitle").focus(), 80);
   }
@@ -572,18 +573,46 @@
     $("removeAudioBtn").classList.toggle("hidden", !available && !lesson.audioName);
   }
 
+  function editorLesson() {
+    const id = $("lessonId").value;
+    return id ? data.lessons.find(item => item.id === id) : null;
+  }
+
+  function renderEditorAudioStatus(lesson = editorLesson()) {
+    $("editorAudioImport").classList.toggle("hidden", !lesson);
+    if (!lesson) return;
+    const available = hasImportedAudio(lesson);
+    $("editorAudioStatus").textContent = available
+      ? `已导入：${lesson.audioName}。播放全文时将优先使用。`
+      : lesson.audioName
+        ? "原 MP3 文件已丢失，请重新导入。"
+        : "未导入 MP3，整篇播放时使用系统语音。";
+    $("editorImportAudioBtn").textContent = available ? "更换 MP3" : "导入 MP3";
+    $("editorRemoveAudioBtn").classList.toggle("hidden", !available && !lesson.audioName);
+  }
+
   window.onNativeAudioImported = (lessonId, fileName) => {
     const lesson = data.lessons.find(item => item.id === lessonId);
     if (!lesson) return;
     lesson.audioName = fileName || "已导入的音频.mp3";
     saveData();
     if (practice && practice.lesson.id === lessonId) renderAudioStatus();
+    if (!$("editorModal").classList.contains("hidden") && $("lessonId").value === lessonId) {
+      renderEditorAudioStatus(lesson);
+    }
     toast("MP3 已导入，整篇播放时将优先使用");
   };
 
   function importLessonAudio() {
     if (!practice) return;
     if (window.Native && Native.pickAudio) Native.pickAudio(practice.lesson.id);
+    else toast("请在安卓 APP 中导入 MP3");
+  }
+
+  function importEditorAudio() {
+    const lesson = editorLesson();
+    if (!lesson) return toast("请先保存篇目，再从编辑页导入 MP3");
+    if (window.Native && Native.pickAudio) Native.pickAudio(lesson.id);
     else toast("请在安卓 APP 中导入 MP3");
   }
 
@@ -594,6 +623,21 @@
     delete practice.lesson.audioName;
     saveData();
     renderAudioStatus();
+    if (!$("editorModal").classList.contains("hidden") && $("lessonId").value === practice.lesson.id) {
+      renderEditorAudioStatus(practice.lesson);
+    }
+    toast("MP3 已移除");
+  }
+
+  function removeEditorAudio() {
+    const lesson = editorLesson();
+    if (!lesson || !lesson.audioName) return;
+    if (!confirm(`确定移除《${lesson.title}》的 MP3 吗？`)) return;
+    if (window.Native && Native.removeImportedAudio) Native.removeImportedAudio(lesson.id);
+    delete lesson.audioName;
+    saveData();
+    renderEditorAudioStatus(lesson);
+    if (practice && practice.lesson.id === lesson.id) renderAudioStatus();
     toast("MP3 已移除");
   }
 
@@ -893,6 +937,8 @@
   });
 
   $("lessonForm").addEventListener("submit", saveLesson);
+  $("editorImportAudioBtn").addEventListener("click", importEditorAudio);
+  $("editorRemoveAudioBtn").addEventListener("click", removeEditorAudio);
   $("closeEditorBtn").addEventListener("click", closeEditor);
   $("editorModal").addEventListener("click", event => { if (event.target === $("editorModal")) closeEditor(); });
   $("openBatchBtn").addEventListener("click", openBatchImporter);
