@@ -77,7 +77,16 @@ select,input,textarea{width:100%;border:1px solid #d8d2c5;border-radius:12px;bac
 .mode-tabs button{border:0;background:none;border-radius:10px;padding:9px;color:var(--muted);font-weight:750}.mode-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .recite-card{min-height:260px;background:var(--card);border-radius:26px;box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-top:6px solid var(--green)}
 .segment-index{align-self:flex-start;font-size:.78rem;color:var(--muted)}
-.segment-text{font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif;font-size:clamp(1.45rem,6vw,1.9rem);font-weight:400;line-height:1.65;margin:16px 0;white-space:pre-wrap;word-break:break-word}
+.segment-text{font-family:"KaiTi","STKaiti","Kaiti SC","楷体","Noto Serif CJK SC","Noto Serif SC",serif;font-size:clamp(1.2rem,5vw,1.55rem);font-weight:400;line-height:1.65;margin:16px 0;white-space:pre-wrap;word-break:break-word;width:100%}
+.study-heading,.study-body,.study-notes{display:block;width:100%}
+.study-heading{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.study-title{display:block;font-size:1.12em;font-weight:700}
+.study-author{display:block;margin-top:2px;color:var(--muted);font-size:.7em}
+.study-line{display:block;margin:2px 0;padding:2px 7px;border-radius:9px;transition:background .18s,box-shadow .18s}
+.study-line.current{background:var(--green-soft);box-shadow:inset 3px 0 0 var(--green)}
+.study-notes{margin-top:14px;padding:12px 13px;border-radius:14px;background:#f6f2e8;text-align:left;font-size:.72em;line-height:1.65}
+.study-notes strong{display:block;margin-bottom:4px;color:var(--green);font-size:1.05em}
+.study-notes>span{display:block;white-space:pre-wrap}
 .memory-hint{color:var(--muted);font-size:.84rem;margin:4px 0}.reveal-btn{border:1px dashed #c3b9a5;background:#fffaf0;border-radius:12px;padding:12px;color:var(--gold)}
 .nav-row{display:grid;grid-template-columns:54px 1fr 54px;gap:12px;align-items:center;margin:18px 0}
 .icon-btn.big{width:52px;height:52px;font-size:1.4rem}.listen-btn{height:52px;border:0;border-radius:15px;background:var(--green);color:white;font-weight:800}

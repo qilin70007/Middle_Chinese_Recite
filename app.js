@@ -76,7 +76,8 @@
   }
 
   function segmentsOf(lesson) {
-    return splitSegments(lesson.content);
+    const content = lesson.type === "古诗" ? poetryBodyOnly(lesson.content) : lesson.content;
+    return splitSegments(content);
   }
 
   function reviewOf(lesson, index) {
@@ -461,10 +462,44 @@
       line.match(/[^。！？!?；;]+[。！？!?；;]?/g) || [line]);
   }
 
+  const POETRY_NOTES_MARKER = /(?:译文\s*[\/／]\s*提示|白话译文|译文|讲解|记忆提示|备注)\s*[:：]/;
+
   function poetryBodyOnly(content) {
     const text = String(content || "").replace(/\r/g, "").trim();
-    const markerIndex = text.search(/(?:译文\s*[\/／]\s*提示|白话译文|译文|讲解|记忆提示|备注)\s*[:：]/);
+    const markerIndex = text.search(POETRY_NOTES_MARKER);
     return markerIndex >= 0 ? text.slice(0, markerIndex).trim() : text;
+  }
+
+  function visibleLessonNotes(lesson) {
+    if (lesson.notes) return lesson.notes;
+    if (lesson.type !== "古诗") return "";
+    const text = String(lesson.content || "").replace(/\r/g, "").trim();
+    const marker = text.match(POETRY_NOTES_MARKER);
+    return marker ? text.slice(marker.index + marker[0].length).trim() : "";
+  }
+
+  function maskForRecite(text) {
+    return Array.from(String(text || "")).map(char =>
+      /[㐀-鿿]/.test(char) ? "＿" : char).join("");
+  }
+
+  function renderWholePracticeText(lesson, segments, actualIndex, mode, revealed) {
+    const author = lesson.author
+      ? `<span class="study-author">${esc(lesson.author)}</span>` : "";
+    const body = segments.map((segment, index) => {
+      const display = mode === "cloze" ? cloze(segment)
+        : mode === "recite" && !revealed ? maskForRecite(segment)
+        : segment;
+      const current = index === actualIndex ? " current" : "";
+      return `<span class="study-line${current}"${current ? ' aria-current="true"' : ""}>${esc(display)}</span>`;
+    }).join("");
+    const notes = visibleLessonNotes(lesson);
+    const notesBlock = notes
+      ? `<span class="study-notes"><strong>译文／提示</strong><span>${esc(notes)}</span></span>`
+      : "";
+    $("segmentText").innerHTML =
+      `<span class="study-heading"><span class="study-title">${esc(lesson.title)}</span>${author}</span>` +
+      `<span class="study-body">${body}</span>${notesBlock}`;
   }
 
   function renderFullText(lesson) {
@@ -541,9 +576,7 @@
       button.classList.toggle("active", button.dataset.mode === mode));
     $("revealBtn").classList.toggle("hidden", fullTextMode || mode !== "recite" || practice.revealed);
     if (fullTextMode) renderFullText(lesson);
-    else if (mode === "read" || practice.revealed) $("segmentText").textContent = segment;
-    else if (mode === "cloze") $("segmentText").textContent = cloze(segment);
-    else $("segmentText").textContent = "＿＿＿＿＿＿＿＿";
+    else renderWholePracticeText(lesson, allSegments, actualIndex, mode, practice.revealed);
     $("memoryHint").textContent = fullTextMode ? "可边看全文边播放，横屏显示空间更大。" :
       mode === "recite" && !practice.revealed
         ? `开头提示：${segment.replace(/[，。！？；、“”‘’]/g, "").slice(0, 2)}……`
@@ -552,8 +585,8 @@
     $("prevBtn").disabled = fullTextMode || position === 0;
     $("nextBtn").disabled = fullTextMode || position === indices.length - 1;
     $("toggleDifficultBtn").textContent = review.difficult ? "★ 已是重难点" : "☆ 标为重难点";
-    $("notesBox").classList.toggle("hidden", fullTextMode || !lesson.notes);
-    $("notesText").textContent = lesson.notes || "";
+    $("notesBox").classList.add("hidden");
+    $("notesText").textContent = visibleLessonNotes(lesson);
     renderAudioStatus();
     if (fullTextMode) {
       scheduleFullTextFit();
