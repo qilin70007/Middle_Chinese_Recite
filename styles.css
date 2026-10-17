@@ -257,7 +257,10 @@ form label{display:block;font-weight:750;margin:13px 0}form input,form select,fo
 #toggleSortBtn.active{color:var(--coral)}
 .lesson-title-block{min-width:0;flex:1}
 .lesson-card-tools{display:flex;align-items:center;gap:7px;flex:0 0 auto}
-.card-edit-btn{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--green);font-size:.78rem;font-weight:800;padding:6px 9px}
+.lesson-card-actions{display:flex;align-items:center;gap:6px}
+.card-edit-btn,.card-delete-btn{border:1px solid var(--line);border-radius:10px;background:#fff;font-size:.78rem;font-weight:800;padding:6px 9px}
+.card-edit-btn{color:var(--green)}
+.card-delete-btn{border-color:rgba(194,86,75,.25);background:#fff8f6;color:#b65046}
 .lesson-sort-row{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);font-size:.8rem}
 .lesson-sort-row strong{color:var(--ink)}
 .lesson-sort-buttons{display:flex;gap:7px}

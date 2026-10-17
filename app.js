@@ -157,7 +157,10 @@
         <div class="lesson-title-block"><h3>${esc(lesson.title)}</h3><p>${esc(subtitle)}</p></div>
         <div class="lesson-card-tools">
           <span class="type-badge">${esc(lesson.type)}</span>
-          <button class="card-edit-btn" data-edit-lesson="${esc(lesson.id)}" aria-label="编辑${esc(lesson.title)}">编辑</button>
+          <div class="lesson-card-actions">
+            <button class="card-edit-btn" data-edit-lesson="${esc(lesson.id)}" aria-label="编辑${esc(lesson.title)}">编辑</button>
+            <button class="card-delete-btn" data-delete-lesson="${esc(lesson.id)}" aria-label="删除${esc(lesson.title)}">删除</button>
+          </div>
         </div>
       </div>
       <div class="lesson-progress"><span style="width:${percent}%"></span></div>
@@ -186,6 +189,18 @@
     [data.lessons[index], data.lessons[target]] = [data.lessons[target], data.lessons[index]];
     saveData();
     renderHome();
+  }
+
+  function deleteLessonById(lessonId, returnHome = false) {
+    const lesson = data.lessons.find(item => item.id === lessonId);
+    if (!lesson || !confirm(`确定删除《${lesson.title}》吗？\n\n将同时删除这篇的学习记录和已导入 MP3；其他篇目不受影响。`)) return;
+    if (window.Native && Native.removeImportedAudio) Native.removeImportedAudio(lesson.id);
+    data.lessons = data.lessons.filter(item => item.id !== lesson.id);
+    if (practice && practice.lesson.id === lesson.id) practice = null;
+    saveData();
+    if (returnHome) showView("home");
+    else renderHome();
+    toast(`已删除《${lesson.title}》`);
   }
 
   function lessonBatchOrder(lesson) {
@@ -852,6 +867,8 @@
       const lesson = data.lessons.find(item => item.id === lessonEditor.dataset.editLesson);
       return lesson && openEditor(lesson);
     }
+    const lessonDelete = event.target.closest("[data-delete-lesson]");
+    if (lessonDelete) return deleteLessonById(lessonDelete.dataset.deleteLesson);
     const moveButton = event.target.closest("[data-move-lesson]");
     if (moveButton) return moveLesson(moveButton.dataset.moveLesson, moveButton.dataset.moveDirection);
     const lessonButton = event.target.closest("[data-open-lesson]");
@@ -919,10 +936,7 @@
     toast(review.difficult ? "已标为重难点" : "已移出重难点");
   });
   $("deleteLessonBtn").addEventListener("click", () => {
-    if (!practice || !confirm(`确定删除《${practice.lesson.title}》及其学习记录吗？`)) return;
-    if (window.Native && Native.removeImportedAudio) Native.removeImportedAudio(practice.lesson.id);
-    data.lessons = data.lessons.filter(x => x.id !== practice.lesson.id);
-    saveData(); practice = null; showView("home"); toast("篇目已删除");
+    if (practice) deleteLessonById(practice.lesson.id, true);
   });
   ["speechRate","speechPause","speechRepeat","speechVoice"].forEach(id => $(id).addEventListener("input", updateSettings));
   $("previewVoiceBtn").addEventListener("click", previewVoice);
