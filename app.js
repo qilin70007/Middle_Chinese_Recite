@@ -461,13 +461,19 @@
       line.match(/[^。！？!?；;]+[。！？!?；;]?/g) || [line]);
   }
 
+  function poetryBodyOnly(content) {
+    const text = String(content || "").replace(/\r/g, "").trim();
+    const markerIndex = text.search(/(?:译文\s*[\/／]\s*提示|白话译文|译文|讲解|记忆提示|备注)\s*[:：]/);
+    return markerIndex >= 0 ? text.slice(0, markerIndex).trim() : text;
+  }
+
   function renderFullText(lesson) {
     const text = $("segmentText");
     if (lesson.type !== "古诗") {
       text.textContent = lesson.content;
       return;
     }
-    const lines = poetryDisplayLines(lesson.content);
+    const lines = poetryDisplayLines(poetryBodyOnly(lesson.content));
     text.innerHTML = lines.map(line =>
       `<span class="full-text-line">${esc(line)}</span>`).join("");
   }
@@ -546,7 +552,7 @@
     $("prevBtn").disabled = fullTextMode || position === 0;
     $("nextBtn").disabled = fullTextMode || position === indices.length - 1;
     $("toggleDifficultBtn").textContent = review.difficult ? "★ 已是重难点" : "☆ 标为重难点";
-    $("notesBox").classList.toggle("hidden", !lesson.notes);
+    $("notesBox").classList.toggle("hidden", fullTextMode || !lesson.notes);
     $("notesText").textContent = lesson.notes || "";
     renderAudioStatus();
     if (fullTextMode) {
